@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS Process Scheduling Study App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-left: 5px solid #FF6B6B;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+        }
+
+        .option:hover {
+            border-color: #FF6B6B;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            background: #ffe6e6;
+            border-color: #FF6B6B;
+        }
+
+        .option.correct {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+
+        .option.incorrect {
+            background: #ffcdd2;
+            border-color: #f44336;
+        }
+
+        .flashcard {
+            min-height: 250px;
+            perspective: 1000px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 1.2em;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(45deg, #FFB74D, #FFA726);
+            color: #333;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(45deg, #81C784, #66BB6A);
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .gantt-container {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .gantt-chart {
+            display: flex;
+            height: 50px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
+        }
+
+        .gantt-block {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            border-right: 1px solid #fff;
+        }
+
+        .process-p1 { background: #FF6B6B; }
+        .process-p2 { background: #4ECDC4; }
+        .process-p3 { background: #45B7D1; }
+        .process-idle { background: #95A5A6; }
+
+        .time-axis {
+            display: flex;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .time-tick {
+            text-align: center;
+            border-left: 1px solid #ccc;
+            padding: 2px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            transition: width 0.3s;
+        }
+
+        .result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+        }
+
+        .result.correct {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .result.incorrect {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        .scheduler-input {
+            margin: 20px 0;
+        }
+
+        .scheduler-input input, .scheduler-input select {
+            padding: 10px;
+            margin: 5px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        .process-table th, .process-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .process-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .process-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .priority-box {
+            display: inline-block;
+            padding: 5px 10px;
+            margin: 2px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .priority-high { background: #ffcdd2; color: #c62828; }
+        .priority-medium { background: #fff3e0; color: #ef6c00; }
+        .priority-low { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ OS Process Scheduling Study App</h1>
+            <p>Interactive learning for CSC1107 - Process Scheduling</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="correct-count">0</div>
+                    <div>Correct</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div>Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="accuracy">0%</div>
+                    <div>Accuracy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('quiz')">📝 Quiz Mode</button>
+                <button class="mode-btn" onclick="setMode('flashcard')">🗂️ Flashcards</button>
+                <button class="mode-btn" onclick="setMode('scheduler')">📊 Scheduler Simulator</button>
+                <button class="mode-btn" onclick="setMode('concept')">🎯 Concepts</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <!-- Quiz Mode -->
+            <div id="quiz-mode" class="mode-content">
+                <div class="card fade-in">
+                    <div class="question" id="quiz-question">Loading question...</div>
+                    <div class="options" id="quiz-options"></div>
+                    <div class="result hidden" id="quiz-result"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-warning" onclick="resetStats()">Reset Stats</button>
+                </div>
+            </div>
+
+            <!-- Flashcard Mode -->
+            <div id="flashcard-mode" class="mode-content hidden">
+                <div class="card flashcard" onclick="flipCard()">
+                    <div class="flashcard-inner" id="flashcard-inner">
+                        <div class="flashcard-front" id="flashcard-front">
+                            Click to reveal answer
+                        </div>
+                        <div class="flashcard-back" id="flashcard-back">
+                            Answer will appear here
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="nextFlashcard()">Next Card</button>
+                    <button class="btn btn-primary" onclick="shuffleFlashcards()">Shuffle</button>
+                </div>
+            </div>
+
+            <!-- Scheduler Simulator -->
+            <div id="scheduler-mode" class="mode-content hidden">
+                <div class="card fade-in">
+                    <h3>Interactive Scheduling Simulator</h3>
+                    <div class="scheduler-input">
+                        <label>Scheduling Algorithm:</label>
+                        <select id="algorithm-select" onchange="updateScheduler()">
+                            <option value="fcfs">First Come First Served (FCFS)</option>
+                            <option value="rr">Round Robin (RR)</option>
+                            <option value="sjf">Shortest Job First (SJF)</option>
+                            <option value="srtf">Shortest Remaining Time First (SRTF)</option>
+                        </select>
+                        <div id="quantum-input" style="display:none;">
+                            <label>Time Quantum:</label>
+                            <input type="number" id="quantum" value="3" min="1" max="10" onchange="updateScheduler()">
+                        </div>
+                    </div>
+                    
+                    <table class="process-table">
+                        <thead>
+                            <tr>
+                                <th>Process</th>
+                                <th>Arrival Time</th>
+                                <th>Burst Time</th>
+                                <th>Completion Time</th>
+                                <th>Turnaround Time</th>
+                                <th>Waiting Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="process-table-body">
+                        </tbody>
+                    </table>
+
+                    <div class="gantt-container">
+                        <h4>Gantt Chart:</h4>
+                        <div id="gantt-chart" class="gantt-chart"></div>
+                        <div id="time-axis" class="time-axis"></div>
+                    </div>
+
+                    <div id="scheduler-metrics">
+                        <h4>Performance Metrics:</h4>
+                        <p><strong>Average Turnaround Time:</strong> <span id="avg-turnaround">0</span></p>
+                        <p><strong>Average Waiting Time:</strong> <span id="avg-waiting">0</span></p>
+                        <p><strong>CPU Utilization:</strong> <span id="cpu-utilization">0%</span></p>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="randomizeProcesses()">Random Processes</button>
+                    <button class="btn btn-success" onclick="updateScheduler()">Recalculate</button>
+                </div>
+            </div>
+
+            <!-- Concept Mode -->
+            <div id="concept-mode" class="mode-content hidden">
+                <div class="card fade-in" id="concept-card">
+                    <div id="concept-content">Loading concept...</div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextConcept()">Next Concept</button>
+                    <button class="btn btn-success" onclick="randomConcept()">Random</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Study data
+        const quizData = [
+            {
+                question: "What is the main purpose of process scheduling in an operating system?",
+                options: [
+                    "To manage memory allocation",
+                    "To share CPU time between processes and optimize system performance",
+                    "To handle file system operations",
+                    "To manage network connections"
+                ],
+                correct: 1,
+                explanation: "Process scheduling allocates CPU time between processes to create the illusion of simultaneous execution and optimize system performance metrics like throughput and response time."
+            },
+            {
+                question: "Which scheduling algorithm minimizes average waiting time but requires knowing burst times in advance?",
+                options: ["FCFS", "Round Robin", "Shortest Job First (SJF)", "Priority Scheduling"],
+                correct: 2,
+                explanation: "SJF optimizes average waiting time by scheduling shorter jobs first, but it's clairvoyant - requiring advance knowledge of burst times, making it unrealistic for real systems."
+            },
+            {
+                question: "What happens during a context switch?",
+                options: [
+                    "Memory is deallocated",
+                    "Process state is saved, new process state is restored, virtual memory mapping changes",
+                    "Files are closed",
+                    "Network connections are terminated"
+                ],
+                correct: 1,
+                explanation: "Context switch saves the current process state (PC, registers, stack pointer) to thread_info, restores the new process state, and changes virtual memory mapping."
+            },
+            {
+                question: "In Round Robin scheduling, what happens if the time quantum is too small?",
+                options: [
+                    "System becomes more efficient",
+                    "Context switch overhead dominates performance",
+                    "Round Robin becomes FCFS",
+                    "Memory usage decreases"
+                ],
+                correct: 1,
+                explanation: "Small time quantum causes frequent context switches, leading to high overhead that can dominate actual work. If quantum is too large, RR degenerates to FCFS."
+            },
+            {
+                question: "What is the difference between preemptive and non-preemptive scheduling?",
+                options: [
+                    "Preemptive uses more memory",
+                    "Non-preemptive is faster",
+                    "Preemptive can interrupt running processes, non-preemptive waits for voluntary yield",
+                    "They are the same thing"
+                ],
+                correct: 2,
+                explanation: "Preemptive scheduling (Linux) uses timer interrupts to forcibly switch processes. Non-preemptive (DOS) relies on processes voluntarily yielding CPU control."
+            },
+            {
+                question: "In Linux, what is the range of real-time task priorities?",
+                options: ["0-99 (0 highest)", "100-139", "-20 to +19", "1-10"],
+                correct: 0,
+                explanation: "Linux real-time priorities range from 0-99 (0 being highest priority), while normal tasks use 100-139. Real-time tasks always preempt normal tasks."
+            },
+            {
+                question: "What problem can occur with priority-based scheduling?",
+                options: [
+                    "Memory leaks",
+                    "Starvation of low-priority processes",
+                    "CPU overheating",
+                    "Network congestion"
+                ],
+                correct: 1,
+                explanation: "Low-priority processes can suffer starvation, never getting CPU access as high-priority processes keep arriving. Solution is aging - gradually increasing priority of waiting processes."
+            },
+            {
+                question: "What does the Linux CFS (Completely Fair Scheduler) try to achieve?",
+                options: [
+                    "Fastest possible execution",
+                    "Lowest memory usage",
+                    "Fair distribution of CPU time based on virtual runtime",
+                    "Maximum throughput"
+                ],
+                correct: 2,
+                explanation: "CFS models an ideal multitasking CPU giving each process 1/N time scaled by priority. It tracks virtual runtime and schedules the process with smallest runtime next."
+            },
+            {
+                question: "In EDF (Earliest Deadline First) scheduling, what condition must be met to guarantee all deadlines?",
+                options: [
+                    "All processes have same priority",
+                    "Total CPU utilization ≤ 100%",
+                    "Quantum size is optimized",
+                    "Memory is sufficient"
+                ],
+                correct: 1,
+                explanation: "EDF guarantees meeting all deadlines if and only if total CPU utilization is ≤ 100%. This makes it optimal for hard real-time systems where missing deadlines is catastrophic."
+            },
+            {
+                question: "What Linux command is used to change the niceness of a currently running process?",
+                options: ["nice", "renice", "chrt", "sched"],
+                correct: 1,
+                explanation: "renice changes niceness of running processes (renice -n 15 -p pid), while nice sets niceness for new processes (nice -n 12 command). chrt is for real-time scheduling."
+            }
+        ];
+
+        const flashcards = [
+            {
+                front: "What is a Process?",
+                back: "A program in execution. It has state (running, ready, waiting), resources (memory, files), and scheduling attributes (priority, policy)."
+            },
+            {
+                front: "Process State Transitions",
+                back: "Ready → Running (scheduled)\nRunning → Ready (preempted)\nRunning → Waiting (I/O request)\nWaiting → Ready (I/O complete)"
+            },
+            {
+                front: "CPU vs I/O Bursts",
+                back: "CPU Burst: Time process uses CPU cycles\nI/O Burst: Time process waits for resources\nCPU bursts typically shorter than I/O bursts"
+            },
+            {
+                front: "FCFS Characteristics",
+                back: "• Non-preemptive\n• Simple queuing (first-come, first-served)\n• Can cause convoy effect\n• Long processes delay short ones"
+            },
+            {
+                front: "Round Robin Key Points",
+                back: "• Preemptive with fixed time quantum\n• Good for interactive systems\n• Quantum too small → overhead dominates\n• Quantum too large → becomes FCFS"
+            },
+            {
+                front: "SJF vs SRTF",
+                back: "SJF: Non-preemptive, optimal for avg waiting time\nSRTF: Preemptive version of SJF\nBoth are clairvoyant (unrealistic)"
+            },
+            {
+                front: "Scheduling Metrics",
+                back: "• Turnaround time: tend - tarrival\n• Waiting time: tturnaround - tburst\n• Response time: tstart - tarrival\n• Throughput: processes/time\n• CPU utilization: % busy time"
+            },
+            {
+                front: "Linux Priority System",
+                back: "Real-time: 0-99 (0 highest)\nNormal: 100-139\nNiceness: -20 to +19 (affects normal priority)\nReal-time always preempts normal"
+            },
+            {
+                front: "Hard vs Soft Real-time",
+                back: "Hard: Must meet deadlines (avionics, medical)\nSoft: Best effort, missed deadlines affect UX but not catastrophic (multimedia, gaming)"
+            },
+            {
+                front: "Context Switch Cost",
+                back: "• Save current process state\n• Restore new process state\n• Change virtual memory mapping\n• Cache/TLB flushes\n• Overhead increases with frequency"
+            }
+        ];
+
+        const concepts = [
+            {
+                title: "Process Lifecycle and States",
+                content: `
+                    <h3>Process State Diagram:</h3>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <div style="display: inline-block; margin: 10px; padding: 10px; background: #e8f5e8; border-radius: 10px;">
+                            <strong>Ready Queue</strong><br>
+                            Processes waiting for CPU
+                        </div>
+                        →
+                        <div style="display: inline-block; margin: 10px; padding: 10px; background: #fff3e0; border-radius: 10px;">
+                            <strong>Running</strong><br>
+                            Process using CPU
+                        </div>
+                        →
+                        <div style="display: inline-block; margin: 10px; padding: 10px; background: #ffcdd2; border-radius: 10px;">
+                            <strong>Waiting</strong><br>
+                            Blocked on I/O
+                        </div>
+                    </div>
+                    <p><strong>Key:</strong> Scheduling moves processes between Ready → Running. Context switches save/restore process state.</p>
+                `
+            },
+            {
+                title: "Scheduling Algorithm Comparison",
+                content: `
+                    <table border="1" style="width:100%; border-collapse:collapse;">
+                        <tr><th>Algorithm</th><th>Preemptive?</th><th>Pros</th><th>Cons</th></tr>
+                        <tr><td><strong>FCFS</strong></td><td>No</td><td>Simple, no starvation</td><td>Convoy effect, poor response</td></tr>
+                        <tr><td><strong>RR</strong></td><td>Yes</td><td>Fair, good response</td><td>Context switch overhead</td></tr>
+                        <tr><td><strong>SJF</strong></td><td>No</td><td>Optimal avg waiting time</td><td>Starvation, clairvoyant</td></tr>
+                        <tr><td><strong>SRTF</strong></td><td>Yes</td><td>Optimal, responsive</td><td>High overhead, clairvoyant</td></tr>
+                        <tr><td><strong>Priority</strong></td><td>Both</td><td>Important tasks first</td><td>Starvation problem</td></tr>
+                        <tr><td><strong>EDF</strong></td><td>Yes</td><td>Deadline guarantees</td><td>Complex, real-time only</td></tr>
+                    </table>
+                `
+            },
+            {
+                title: "Linux CFS (Completely Fair Scheduler)",
+                content: `
+                    <h3>How CFS Works:</h3>
+                    <ol>
+                        <li><strong>Virtual Runtime Tracking:</strong> CFS tracks how long each task has run</li>
+                        <li><strong>Red-Black Tree:</strong> Tasks organized by virtual runtime (leftmost = shortest)</li>
+                        <li><strong>Fair Share Model:</strong> For N tasks, each gets 1/N CPU time (scaled by priority)</li>
+                        <li><strong>Dynamic Selection:</strong> Always schedule task with smallest virtual runtime</li>
+                        <li><strong>Niceness Impact:</strong> Nice values affect time slice calculation</li>
+                    </ol>
+                    <p><strong>Goal:</strong> Approximate ideal multitasking CPU where all tasks run simultaneously at reduced speed.</p>
+                `
+            },
+            {
+                title: "Real-Time Scheduling Requirements",
+                content: `
+                    <h3>EDF Task Model:</h3>
+                    <p><strong>Task Definition:</strong> T = {phase, period, execution_time}</p>
+                    <ul>
+                        <li><strong>Phase:</strong> Offset between task periods</li>
+                        <li><strong>Period:</strong> Task must complete within each period</li>
+                        <li><strong>Execution Time:</strong> CPU time needed per period</li>
+                    </ul>
+                    <h4>Schedulability Test:</h4>
+                    <p><strong>Utilization = Σ(execution_time / period) ≤ 1.0</strong></p>
+                    <p>If total utilization ≤ 100%, EDF guarantees all deadlines met.</p>
+                    <div style="background: #f0f8ff; padding: 15px; border-radius: 10px; margin: 10px 0;">
+                        <strong>Example:</strong> T1={0,4,1}, T2={0,6,2}<br>
+                        Utilization = 1/4 + 2/6 = 0.25 + 0.33 = 0.58 ≤ 1.0 ✓ Schedulable
+                    </div>
+                `
+            }
+        ];
+
+        // Sample processes for scheduler simulator
+        let processes = [
+            {name: 'P1', arrival: 0, burst: 8, remaining: 8, completion: 0, turnaround: 0, waiting: 0},
+            {name: 'P2', arrival: 1, burst: 4, remaining: 4, completion: 0, turnaround: 0, waiting: 0},
+            {name: 'P3', arrival: 2, burst: 2, remaining: 2, completion: 0, turnaround: 0, waiting: 0}
+        ];
+
+        // State management
+        let currentQuizIndex = 0;
+        let currentFlashcardIndex = 0;
+        let currentConceptIndex = 0;
+        let correctAnswers = 0;
+        let totalAnswers = 0;
+        let currentMode = 'quiz';
+        let answered = false;
+
+        // Initialize
+        function init() {
+            loadQuestion();
+            loadFlashcard();
+            loadConcept();
+            updateScheduler();
+            updateStats();
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(mode + '-mode').classList.remove('hidden');
+            
+            // Show quantum input for RR
+            if (mode === 'scheduler') {
+                const algorithm = document.getElementById('algorithm-select').value;
+                document.getElementById('quantum-input').style.display = 
+                    algorithm === 'rr' ? 'block' : 'none';
+            }
+            
+            updateProgress();
+        }
+
+        // Quiz functionality
+        function loadQuestion() {
+            if (currentQuizIndex >= quizData.length) {
+                currentQuizIndex = 0;
+            }
+            
+            const question = quizData[currentQuizIndex];
+            document.getElementById('quiz-question').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(index);
+                optionsContainer.appendChild(optionDiv);
+            });
+            
+            document.getElementById('quiz-result').classList.add('hidden');
+            answered = false;
+        }
+
+        function selectOption(selectedIndex) {
+            if (answered) return;
+            
+            const question = quizData[currentQuizIndex];
+            const options = document.querySelectorAll('.option');
+            
+            options[selectedIndex].classList.add('selected');
+            
+            setTimeout(() => {
+                options.forEach((option, index) => {
+                    if (index === question.correct) {
+                        option.classList.add('correct');
+                    } else if (index === selectedIndex && index !== question.correct) {
+                        option.classList.add('incorrect');
+                    }
+                });
+                
+                const resultDiv = document.getElementById('quiz-result');
+                const isCorrect = selectedIndex === question.correct;
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                    resultDiv.className = 'result correct';
+                    resultDiv.innerHTML = `<strong>✅ Correct!</strong><div class="explanation">${question.explanation}</div>`;
+                } else {
+                    resultDiv.className = 'result incorrect';
+                    resultDiv.innerHTML = `<strong>❌ Incorrect!</strong><div class="explanation">${question.explanation}</div>`;
+                }
+                
+                totalAnswers++;
+                answered = true;
+                resultDiv.classList.remove('hidden');
+                updateStats();
+            }, 500);
+        }
+
+        function nextQuestion() {
+            currentQuizIndex++;
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Flashcard functionality
+        function loadFlashcard() {
+            if (currentFlashcardIndex >= flashcards.length) {
+                currentFlashcardIndex = 0;
+            }
+            
+            const card = flashcards[currentFlashcardIndex];
+            document.getElementById('flashcard-front').textContent = card.front;
+            document.getElementById('flashcard-back').innerHTML = card.back;
+            
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+
+        function flipCard() {
+            document.querySelector('.flashcard').classList.toggle('flipped');
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex++;
+            loadFlashcard();
+            updateProgress();
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentFlashcardIndex = 0;
+            loadFlashcard();
+        }
+
+        // Concept functionality
+        function loadConcept() {
+            if (currentConceptIndex >= concepts.length) {
+                currentConceptIndex = 0;
+            }
+            
+            const concept = concepts[currentConceptIndex];
+            document.getElementById('concept-content').innerHTML = `
+                <h2>${concept.title}</h2>
+                ${concept.content}
+            `;
+        }
+
+        function nextConcept() {
+            currentConceptIndex++;
+            loadConcept();
+            updateProgress();
+        }
+
+        function randomConcept() {
+            currentConceptIndex = Math.floor(Math.random() * concepts.length);
+            loadConcept();
+        }
+
+        // Scheduler simulator
+        function updateScheduler() {
+            const algorithm = document.getElementById('algorithm-select').value;
+            document.getElementById('quantum-input').style.display = 
+                algorithm === 'rr' ? 'block' : 'none';
+            
+            // Reset process states
+            processes.forEach(p => {
+                p.remaining = p.burst;
+                p.completion = 0;
+                p.turnaround = 0;
+                p.waiting = 0;
+            });
+            
+            let schedule = [];
+            switch(algorithm) {
+                case 'fcfs':
+                    schedule = scheduleFCFS();
+                    break;
+                case 'rr':
+                    const quantum = parseInt(document.getElementById('quantum').value) || 3;
+                    schedule = scheduleRR(quantum);
+                    break;
+                case 'sjf':
+                    schedule = scheduleSJF();
+                    break;
+                case 'srtf':
+                    schedule = scheduleSRTF();
+                    break;
+            }
+            
+            updateGanttChart(schedule);
+            updateProcessTable();
+            updateMetrics();
+        }
+
+        function scheduleFCFS() {
+            let schedule = [];
+            let currentTime = 0;
+            let processesCopy = [...processes].sort((a, b) => a.arrival - b.arrival);
+            
+            processesCopy.forEach(process => {
+                if (currentTime < process.arrival) {
+                    currentTime = process.arrival;
+                }
+                
+                schedule.push({
+                    process: process.name,
+                    start: currentTime,
+                    duration: process.burst
+                });
+                
+                currentTime += process.burst;
+                process.completion = currentTime;
+                process.turnaround = process.completion - process.arrival;
+                process.waiting = process.turnaround - process.burst;
+            });
+            
+            return schedule;
+        }
+
+        function scheduleRR(quantum) {
+            let schedule = [];
+            let currentTime = 0;
+            let queue = [];
+            let processesCopy = processes.map(p => ({...p}));
+            let arrived = [];
+            
+            while (processesCopy.some(p => p.remaining > 0) || queue.length > 0) {
+                // Add newly arrived processes
+                processesCopy.forEach(p => {
+                    if (p.arrival <= currentTime && !arrived.includes(p.name) && p.remaining > 0) {
+                        queue.push(p);
+                        arrived.push(p.name);
+                    }
+                });
+                
+                if (queue.length === 0) {
+                    currentTime++;
+                    continue;
+                }
+                
+                let current = queue.shift();
+                let timeSlice = Math.min(quantum, current.remaining);
+                
+                schedule.push({
+                    process: current.name,
+                    start: currentTime,
+                    duration: timeSlice
+                });
+                
+                current.remaining -= timeSlice;
+                currentTime += timeSlice;
+                
+                // Add newly arrived processes
+                processesCopy.forEach(p => {
+                    if (p.arrival <= currentTime && !arrived.includes(p.name) && p.remaining > 0) {
+                        queue.push(p);
+                        arrived.push(p.name);
+                    }
+                });
+                
+                if (current.remaining > 0) {
+                    queue.push(current);
+                } else {
+                    current.completion = currentTime;
+                    current.turnaround = current.completion - current.arrival;
+                    current.waiting = current.turnaround - current.burst;
+                }
+            }
+            
+            // Update original processes
+            processesCopy.forEach((p, i) => {
+                processes[i].completion = p.completion;
+                processes[i].turnaround = p.turnaround;
+                processes[i].waiting = p.waiting;
+            });
+            
+            return schedule;
+        }
+
+        function scheduleSJF() {
+            let schedule = [];
+            let currentTime = 0;
+            let completed = [];
+            
+            while (completed.length < processes.length) {
+                let available = processes.filter(p => 
+                    p.arrival <= currentTime && !completed.includes(p.name)
+                );
+                
+                if (available.length === 0) {
+                    currentTime++;
+                    continue;
+                }
+                
+                let shortest = available.reduce((min, p) => 
+                    p.burst < min.burst ? p : min
+                );
+                
+                schedule.push({
+                    process: shortest.name,
+                    start: currentTime,
+                    duration: shortest.burst
+                });
+                
+                currentTime += shortest.burst;
+                shortest.completion = currentTime;
+                shortest.turnaround = shortest.completion - shortest.arrival;
+                shortest.waiting = shortest.turnaround - shortest.burst;
+                completed.push(shortest.name);
+            }
+            
+            return schedule;
+        }
+
+        function scheduleSRTF() {
+            let schedule = [];
+            let currentTime = 0;
+            let processesCopy = processes.map(p => ({...p}));
+            
+            while (processesCopy.some(p => p.remaining > 0)) {
+                let available = processesCopy.filter(p => 
+                    p.arrival <= currentTime && p.remaining > 0
+                );
+                
+                if (available.length === 0) {
+                    currentTime++;
+                    continue;
+                }
+                
+                let shortest = available.reduce((min, p) => 
+                    p.remaining < min.remaining ? p : min
+                );
+                
+                schedule.push({
+                    process: shortest.name,
+                    start: currentTime,
+                    duration: 1
+                });
+                
+                shortest.remaining--;
+                currentTime++;
+                
+                if (shortest.remaining === 0) {
+                    shortest.completion = currentTime;
+                    shortest.turnaround = shortest.completion - shortest.arrival;
+                    shortest.waiting = shortest.turnaround - shortest.burst;
+                }
+            }
+            
+            // Update original processes
+            processesCopy.forEach((p, i) => {
+                processes[i].completion = p.completion;
+                processes[i].turnaround = p.turnaround;
+                processes[i].waiting = p.waiting;
+            });
+            
+            // Merge consecutive blocks of same process
+            let merged = [];
+            for (let i = 0; i < schedule.length; i++) {
+                if (merged.length === 0 || merged[merged.length-1].process !== schedule[i].process) {
+                    merged.push(schedule[i]);
+                } else {
+                    merged[merged.length-1].duration++;
+                }
+            }
+            
+            return merged;
+        }
+
+        function updateGanttChart(schedule) {
+            const ganttChart = document.getElementById('gantt-chart');
+            const timeAxis = document.getElementById('time-axis');
+            
+            ganttChart.innerHTML = '';
+            timeAxis.innerHTML = '';
+            
+            let totalTime = schedule.reduce((sum, block) => sum + block.duration, 0);
+            
+            let currentTime = 0;
+            schedule.forEach(block => {
+                const ganttBlock = document.createElement('div');
+                ganttBlock.className = `gantt-block process-${block.process.toLowerCase()}`;
+                ganttBlock.style.width = `${(block.duration / totalTime) * 100}%`;
+                ganttBlock.textContent = block.process;
+                ganttChart.appendChild(ganttBlock);
+                
+                currentTime += block.duration;
+            });
+            
+            // Create time axis
+            currentTime = 0;
+            schedule.forEach(block => {
+                const tick = document.createElement('div');
+                tick.className = 'time-tick';
+                tick.style.width = `${(block.duration / totalTime) * 100}%`;
+                tick.textContent = currentTime;
+                timeAxis.appendChild(tick);
+                currentTime += block.duration;
+            });
+            
+            // Add final time
+            const finalTick = document.createElement('div');
+            finalTick.style.position = 'absolute';
+            finalTick.style.right = '0';
+            finalTick.textContent = currentTime;
+            timeAxis.appendChild(finalTick);
+        }
+
+        function updateProcessTable() {
+            const tbody = document.getElementById('process-table-body');
+            tbody.innerHTML = '';
+            
+            processes.forEach(process => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${process.name}</strong></td>
+                    <td>${process.arrival}</td>
+                    <td>${process.burst}</td>
+                    <td>${process.completion}</td>
+                    <td>${process.turnaround}</td>
+                    <td>${process.waiting}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateMetrics() {
+            const avgTurnaround = (processes.reduce((sum, p) => sum + p.turnaround, 0) / processes.length).toFixed(2);
+            const avgWaiting = (processes.reduce((sum, p) => sum + p.waiting, 0) / processes.length).toFixed(2);
+            const totalTime = Math.max(...processes.map(p => p.completion));
+            const cpuUtilization = ((processes.reduce((sum, p) => sum + p.burst, 0) / totalTime) * 100).toFixed(1);
+            
+            document.getElementById('avg-turnaround').textContent = avgTurnaround;
+            document.getElementById('avg-waiting').textContent = avgWaiting;
+            document.getElementById('cpu-utilization').textContent = cpuUtilization + '%';
+        }
+
+        function randomizeProcesses() {
+            processes = [
+                {
+                    name: 'P1', 
+                    arrival: Math.floor(Math.random() * 3), 
+                    burst: Math.floor(Math.random() * 8) + 2,
+                    remaining: 0, completion: 0, turnaround: 0, waiting: 0
+                },
+                {
+                    name: 'P2', 
+                    arrival: Math.floor(Math.random() * 4), 
+                    burst: Math.floor(Math.random() * 6) + 1,
+                    remaining: 0, completion: 0, turnaround: 0, waiting: 0
+                },
+                {
+                    name: 'P3', 
+                    arrival: Math.floor(Math.random() * 5), 
+                    burst: Math.floor(Math.random() * 5) + 1,
+                    remaining: 0, completion: 0, turnaround: 0, waiting: 0
+                }
+            ];
+            
+            processes.forEach(p => p.remaining = p.burst);
+            updateScheduler();
+        }
+
+        // Stats and progress
+        function updateStats() {
+            document.getElementById('correct-count').textContent = correctAnswers;
+            document.getElementById('total-count').textContent = totalAnswers;
+            document.getElementById('accuracy').textContent = 
+                totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) + '%' : '0%';
+        }
+
+        function updateProgress() {
+            let progress = 0;
+            if (currentMode === 'quiz') {
+                progress = (currentQuizIndex / quizData.length) * 100;
+            } else if (currentMode === 'flashcard') {
+                progress = (currentFlashcardIndex / flashcards.length) * 100;
+            } else if (currentMode === 'concept') {
+                progress = (currentConceptIndex / concepts.length) * 100;
+            } else if (currentMode === 'scheduler') {
+                progress = 100; // Always complete for simulator
+            }
+            
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function resetStats() {
+            correctAnswers = 0;
+            totalAnswers = 0;
+            currentQuizIndex = 0;
+            updateStats();
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>

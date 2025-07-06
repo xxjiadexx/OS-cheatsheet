@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS Virtual Memory Study App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .mode-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #2196F3;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-left: 5px solid #2196F3;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+        }
+
+        .option:hover {
+            border-color: #2196F3;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            background: #e3f2fd;
+            border-color: #2196F3;
+        }
+
+        .option.correct {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+
+        .option.incorrect {
+            background: #ffcdd2;
+            border-color: #f44336;
+        }
+
+        .flashcard {
+            min-height: 250px;
+            perspective: 1000px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 1.2em;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(45deg, #ff9a9e, #fecfef);
+            color: #333;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(45deg, #a8edea, #fed6e3);
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #4caf50, #8bc34a);
+            transition: width 0.3s;
+        }
+
+        .result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+        }
+
+        .result.correct {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .result.incorrect {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 OS Virtual Memory Study App</h1>
+            <p>Interactive learning for CSC1107 - Virtual Memory</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="correct-count">0</div>
+                    <div>Correct</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div>Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="accuracy">0%</div>
+                    <div>Accuracy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('quiz')">📝 Quiz Mode</button>
+                <button class="mode-btn" onclick="setMode('flashcard')">🗂️ Flashcards</button>
+                <button class="mode-btn" onclick="setMode('concept')">🎯 Concepts</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <!-- Quiz Mode -->
+            <div id="quiz-mode" class="mode-content">
+                <div class="card fade-in">
+                    <div class="question" id="quiz-question">Loading question...</div>
+                    <div class="options" id="quiz-options"></div>
+                    <div class="result hidden" id="quiz-result"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-warning" onclick="resetStats()">Reset Stats</button>
+                </div>
+            </div>
+
+            <!-- Flashcard Mode -->
+            <div id="flashcard-mode" class="mode-content hidden">
+                <div class="card flashcard" onclick="flipCard()">
+                    <div class="flashcard-inner" id="flashcard-inner">
+                        <div class="flashcard-front" id="flashcard-front">
+                            Click to reveal answer
+                        </div>
+                        <div class="flashcard-back" id="flashcard-back">
+                            Answer will appear here
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="nextFlashcard()">Next Card</button>
+                    <button class="btn btn-primary" onclick="shuffleFlashcards()">Shuffle</button>
+                </div>
+            </div>
+
+            <!-- Concept Mode -->
+            <div id="concept-mode" class="mode-content hidden">
+                <div class="card fade-in" id="concept-card">
+                    <div id="concept-content">Loading concept...</div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextConcept()">Next Concept</button>
+                    <button class="btn btn-success" onclick="randomConcept()">Random</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Study data
+        const quizData = [
+            {
+                question: "What are the three main benefits of virtual memory?",
+                options: [
+                    "Speed, Size, Security",
+                    "Process Isolation, Code Relocation, Hardware Abstraction",
+                    "Paging, Segmentation, Swapping",
+                    "TLB, MMU, Cache"
+                ],
+                correct: 1,
+                explanation: "Virtual memory provides: 1) Process isolation (processes can't access each other's memory), 2) Code relocation (binaries load at same virtual address), 3) Hardware abstraction (uniform view regardless of physical memory)."
+            },
+            {
+                question: "In a 32-bit system with 4KB pages, how many bits are used for the page offset?",
+                options: ["10 bits", "12 bits", "16 bits", "20 bits"],
+                correct: 1,
+                explanation: "Page size 4KB = 2^12 bytes, so 12 bits are needed for the page offset. The remaining 20 bits are used for the page number (32 - 12 = 20)."
+            },
+            {
+                question: "What does the TLB stand for and what is its purpose?",
+                options: [
+                    "Total Logic Buffer - manages CPU logic",
+                    "Translation Lookaside Buffer - caches address translations",
+                    "Table Lookup Buffer - stores page tables",
+                    "Time Limit Buffer - manages process timing"
+                ],
+                correct: 1,
+                explanation: "TLB (Translation Lookaside Buffer) is a cache that stores recently used virtual-to-physical address translations, making memory access ~10x faster than page table walks."
+            },
+            {
+                question: "What happens when the L_PTE_XN bit is set in ARM page metadata?",
+                options: [
+                    "Page becomes read-only",
+                    "Page is marked as dirty",
+                    "Page is not executable (Execute Never)",
+                    "Page is shared between processes"
+                ],
+                correct: 2,
+                explanation: "L_PTE_XN (Execute Never) bit prevents code execution on that page, providing security against buffer overflow attacks by marking data pages as non-executable."
+            },
+            {
+                question: "Calculate the effective memory access time with: TLB hit ratio 90%, TLB time 1ns, Memory time 100ns, 2-level page table:",
+                options: ["91ns", "111ns", "121ns", "201ns"],
+                correct: 2,
+                explanation: "Formula: r×(t+m) + (1-r)×(t+(n+1)×m) = 0.9×(1+100) + 0.1×(1+3×100) = 90.9 + 30.1 = 121ns. Perfect calculation!"
+            },
+            {
+                question: "Which system calls are used to grow the heap in Linux?",
+                options: ["malloc() and free()", "mmap() and munmap()", "brk() and sbrk()", "fork() and exec()"],
+                correct: 2,
+                explanation: "brk() and sbrk() are system calls that adjust the program break (end of heap), effectively growing or shrinking the heap. malloc() uses these internally."
+            },
+            {
+                question: "What is the main advantage of multi-level page tables over single-level?",
+                options: [
+                    "Faster address translation",
+                    "Reduced memory overhead for sparse address spaces",
+                    "Better TLB performance", 
+                    "Simpler implementation"
+                ],
+                correct: 1,
+                explanation: "Multi-level page tables only allocate memory for used portions of the virtual address space, significantly reducing memory overhead compared to single-level tables that allocate for the entire address space."
+            },
+            {
+                question: "In Linux virtual address space, what grows downward from high addresses?",
+                options: ["Heap", "Stack", "Code segment", "Static data"],
+                correct: 1,
+                explanation: "The stack grows downward from high virtual addresses toward lower addresses. The heap grows upward from lower addresses. They grow toward each other."
+            },
+            {
+                question: "What is Virtual Memory?",
+                options: [
+                    "A type of RAM memory",
+                    "VM creates the illusion of a large, flat main memory using hardware (MMU) and OS cooperation",
+                    "Memory stored on hard disk only",
+                    "Cache memory in the CPU"
+                ],
+                correct: 1,
+                explanation: "Virtual Memory creates the illusion of a large, flat main memory using hardware (MMU) and OS cooperation. Each process has its own virtual address space that is mapped to physical memory."
+            },
+            {
+                question: "What is the role of the MMU (Memory Management Unit)?",
+                options: [
+                    "Manages CPU scheduling",
+                    "Controls disk operations",
+                    "Hardware that interposes between processor and memory to translate virtual addresses to physical addresses",
+                    "Manages network connections"
+                ],
+                correct: 2,
+                explanation: "Memory Management Unit (MMU) is hardware that interposes between processor and memory to translate virtual addresses to physical addresses, enabling virtual memory functionality."
+            },
+            {
+                question: "What is the difference between a Page and a Frame?",
+                options: [
+                    "Page is hardware, Frame is software",
+                    "Page is fixed-size virtual memory block, Frame is fixed-size physical memory block",
+                    "Page is larger than Frame",
+                    "They are exactly the same thing"
+                ],
+                correct: 1,
+                explanation: "Page: Fixed-size virtual memory block. Frame: Fixed-size physical memory block. Both are typically 4KB in Linux, but Pages exist in virtual address space while Frames exist in physical memory."
+            },
+            {
+                question: "What happens during a TLB Miss?",
+                options: [
+                    "The system crashes",
+                    "Memory access becomes faster",
+                    "Must perform page table walk - multiple memory accesses required, very expensive",
+                    "The TLB is automatically refilled"
+                ],
+                correct: 2,
+                explanation: "When TLB doesn't contain the translation, the system must perform a page table walk - multiple memory accesses are required to traverse the page table hierarchy, making it very expensive compared to a TLB hit."
+            },
+            {
+                question: "What causes Internal Fragmentation in virtual memory?",
+                options: [
+                    "Too many processes running",
+                    "Unused space within allocated pages that belongs to one process and cannot be assigned to another",
+                    "Pages being swapped to disk",
+                    "TLB cache misses"
+                ],
+                correct: 1,
+                explanation: "Internal Fragmentation occurs when there's unused space within allocated pages that belongs to one process and cannot be assigned to another, causing wasted memory within page boundaries."
+            },
+            {
+                question: "What is the ARM Page Table Hierarchy?",
+                options: [
+                    "PTE → PMD → PGD → Physical Frame",
+                    "PGD → PMD → PTE → Physical Frame",
+                    "Physical Frame → PGD → PMD → PTE",
+                    "PMD → PGD → PTE → Physical Frame"
+                ],
+                correct: 1,
+                explanation: "ARM Page Table Hierarchy: PGD (Page Global Directory) → PMD (Page Middle Directory) → PTE (Page Table Entry) → Physical Frame. This multi-level structure reduces memory overhead."
+            },
+            {
+                question: "What is the difference between TTBR0 and TTBR1 in ARM?",
+                options: [
+                    "TTBR0 is for kernel, TTBR1 is for user space",
+                    "TTBR0 is for user space, TTBR1 is for kernel space",
+                    "They are identical registers",
+                    "TTBR0 is faster than TTBR1"
+                ],
+                correct: 1,
+                explanation: "TTBR0: Process-specific page tables (user space). TTBR1: OS kernel addresses (kernel space). This separation allows efficient context switching and memory protection."
+            },
+            {
+                question: "What typically causes a Segmentation Fault?",
+                options: [
+                    "CPU overheating",
+                    "Network disconnection",
+                    "Accessing invalid pages or violating page table metadata permissions",
+                    "Running out of disk space"
+                ],
+                correct: 2,
+                explanation: "Segmentation Fault occurs when accessing invalid pages or violating page table metadata permissions (like trying to write to read-only pages). This results in a SIGSEGV signal to the process."
+            }
+        ];
+
+        const flashcards = [
+            {
+                front: "What is Virtual Memory?",
+                back: "VM creates the illusion of a large, flat main memory using hardware (MMU) and OS cooperation. Each process has its own virtual address space."
+            },
+            {
+                front: "MMU Role",
+                back: "Memory Management Unit - hardware that interposes between processor and memory to translate virtual addresses to physical addresses."
+            },
+            {
+                front: "Page vs Frame",
+                back: "Page: Fixed-size virtual memory block\nFrame: Fixed-size physical memory block\nBoth typically 4KB in Linux"
+            },
+            {
+                front: "TLB Miss Penalty",
+                back: "When TLB doesn't contain the translation, must perform page table walk - multiple memory accesses required, very expensive."
+            },
+            {
+                front: "Internal Fragmentation",
+                back: "Unused space within allocated pages that belongs to one process and cannot be assigned to another, causing wasted memory."
+            },
+            {
+                front: "ARM Page Table Hierarchy",
+                back: "PGD (Page Global Directory) → PMD (Page Middle Directory) → PTE (Page Table Entry) → Physical Frame"
+            },
+            {
+                front: "TTBR0 vs TTBR1",
+                back: "TTBR0: Process-specific page tables (user space)\nTTBR1: OS kernel addresses (kernel space)"
+            },
+            {
+                front: "Segmentation Fault Cause",
+                back: "Accessing invalid pages or violating page table metadata permissions. Results in SIGSEGV signal to the process."
+            }
+        ];
+
+        const concepts = [
+            {
+                title: "Virtual Address Translation Process",
+                content: `
+                    <h3>Step-by-Step Translation:</h3>
+                    <ol>
+                        <li><strong>Split Virtual Address:</strong> Page number + Offset</li>
+                        <li><strong>Check TLB:</strong> Look for cached translation</li>
+                        <li><strong>TLB Hit:</strong> Use cached physical address</li>
+                        <li><strong>TLB Miss:</strong> Perform page table walk</li>
+                        <li><strong>Page Table Walk:</strong> Navigate multi-level page tables</li>
+                        <li><strong>Build Physical Address:</strong> Frame number + Offset</li>
+                    </ol>
+                    <p><strong>Key:</strong> TLB makes this process ~10x faster by caching translations!</p>
+                `
+            },
+            {
+                title: "Memory Hierarchy Speed vs Size",
+                content: `
+                    <h3>From Fastest to Slowest:</h3>
+                    <ul>
+                        <li><strong>CPU Registers:</strong> ~1 cycle, few bytes</li>
+                        <li><strong>L1 Cache:</strong> ~1-3 cycles, ~32KB</li>
+                        <li><strong>L2 Cache:</strong> ~10 cycles, ~256KB</li>
+                        <li><strong>L3 Cache:</strong> ~30 cycles, ~8MB</li>
+                        <li><strong>RAM:</strong> ~100 cycles, GBs</li>
+                        <li><strong>SSD:</strong> ~25,000 cycles, 100s GB</li>
+                        <li><strong>HDD:</strong> ~500,000 cycles, TBs</li>
+                    </ul>
+                    <p><strong>Tradeoff:</strong> Smaller = Faster, Larger = Slower</p>
+                `
+            },
+            {
+                title: "Page Size Impact Analysis",
+                content: `
+                    <h3>Small Pages (4KB) vs Large Pages (2MB+):</h3>
+                    <table border="1" style="width:100%; border-collapse:collapse;">
+                        <tr><th>Aspect</th><th>Small Pages</th><th>Large Pages</th></tr>
+                        <tr><td>Internal Fragmentation</td><td>✅ Low</td><td>❌ High</td></tr>
+                        <tr><td>TLB Pressure</td><td>❌ High</td><td>✅ Low</td></tr>
+                        <tr><td>Page Table Size</td><td>❌ Large</td><td>✅ Small</td></tr>
+                        <tr><td>Memory Overhead</td><td>❌ High</td><td>✅ Low</td></tr>
+                        <tr><td>Best For</td><td>General purpose</td><td>Databases, HPC</td></tr>
+                    </table>
+                `
+            }
+        ];
+
+        // State management
+        let currentQuizIndex = 0;
+        let currentFlashcardIndex = 0;
+        let currentConceptIndex = 0;
+        let correctAnswers = 0;
+        let totalAnswers = 0;
+        let currentMode = 'quiz';
+        let answered = false;
+
+        // Initialize
+        function init() {
+            loadQuestion();
+            loadFlashcard();
+            loadConcept();
+            updateStats();
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(mode + '-mode').classList.remove('hidden');
+            
+            updateProgress();
+        }
+
+        // Quiz functionality
+        function loadQuestion() {
+            if (currentQuizIndex >= quizData.length) {
+                currentQuizIndex = 0;
+            }
+            
+            const question = quizData[currentQuizIndex];
+            document.getElementById('quiz-question').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(index);
+                optionsContainer.appendChild(optionDiv);
+            });
+            
+            document.getElementById('quiz-result').classList.add('hidden');
+            answered = false;
+        }
+
+        function selectOption(selectedIndex) {
+            if (answered) return;
+            
+            const question = quizData[currentQuizIndex];
+            const options = document.querySelectorAll('.option');
+            
+            // Mark selected option
+            options[selectedIndex].classList.add('selected');
+            
+            // Show correct/incorrect
+            setTimeout(() => {
+                options.forEach((option, index) => {
+                    if (index === question.correct) {
+                        option.classList.add('correct');
+                    } else if (index === selectedIndex && index !== question.correct) {
+                        option.classList.add('incorrect');
+                    }
+                });
+                
+                // Show result
+                const resultDiv = document.getElementById('quiz-result');
+                const isCorrect = selectedIndex === question.correct;
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                    resultDiv.className = 'result correct';
+                    resultDiv.innerHTML = `<strong>✅ Correct!</strong><div class="explanation">${question.explanation}</div>`;
+                } else {
+                    resultDiv.className = 'result incorrect';
+                    resultDiv.innerHTML = `<strong>❌ Incorrect!</strong><div class="explanation">${question.explanation}</div>`;
+                }
+                
+                totalAnswers++;
+                answered = true;
+                resultDiv.classList.remove('hidden');
+                updateStats();
+            }, 500);
+        }
+
+        function nextQuestion() {
+            currentQuizIndex++;
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Flashcard functionality
+        function loadFlashcard() {
+            if (currentFlashcardIndex >= flashcards.length) {
+                currentFlashcardIndex = 0;
+            }
+            
+            const card = flashcards[currentFlashcardIndex];
+            document.getElementById('flashcard-front').textContent = card.front;
+            document.getElementById('flashcard-back').innerHTML = card.back;
+            
+            // Reset flip
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+
+        function flipCard() {
+            document.querySelector('.flashcard').classList.toggle('flipped');
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex++;
+            loadFlashcard();
+            updateProgress();
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentFlashcardIndex = 0;
+            loadFlashcard();
+        }
+
+        // Concept functionality
+        function loadConcept() {
+            if (currentConceptIndex >= concepts.length) {
+                currentConceptIndex = 0;
+            }
+            
+            const concept = concepts[currentConceptIndex];
+            document.getElementById('concept-content').innerHTML = `
+                <h2>${concept.title}</h2>
+                ${concept.content}
+            `;
+        }
+
+        function nextConcept() {
+            currentConceptIndex++;
+            loadConcept();
+            updateProgress();
+        }
+
+        function randomConcept() {
+            currentConceptIndex = Math.floor(Math.random() * concepts.length);
+            loadConcept();
+        }
+
+        // Stats and progress
+        function updateStats() {
+            document.getElementById('correct-count').textContent = correctAnswers;
+            document.getElementById('total-count').textContent = totalAnswers;
+            document.getElementById('accuracy').textContent = 
+                totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) + '%' : '0%';
+        }
+
+        function updateProgress() {
+            let progress = 0;
+            if (currentMode === 'quiz') {
+                progress = (currentQuizIndex / quizData.length) * 100;
+            } else if (currentMode === 'flashcard') {
+                progress = (currentFlashcardIndex / flashcards.length) * 100;
+            } else if (currentMode === 'concept') {
+                progress = (currentConceptIndex / concepts.length) * 100;
+            }
+            
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function resetStats() {
+            correctAnswers = 0;
+            totalAnswers = 0;
+            currentQuizIndex = 0;
+            updateStats();
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>

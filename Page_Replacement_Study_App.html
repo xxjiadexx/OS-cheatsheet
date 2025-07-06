@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS Page Replacement Study App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #8B5CF6, #EC4899);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #8B5CF6;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-left: 5px solid #8B5CF6;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+        }
+
+        .option:hover {
+            border-color: #8B5CF6;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            background: #f3e8ff;
+            border-color: #8B5CF6;
+        }
+
+        .option.correct {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+
+        .option.incorrect {
+            background: #ffcdd2;
+            border-color: #f44336;
+        }
+
+        .flashcard {
+            min-height: 250px;
+            perspective: 1000px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 1.2em;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(45deg, #A78BFA, #EC4899);
+            color: white;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(45deg, #34D399, #10B981);
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        .simulator-container {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .memory-frames {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .memory-frame {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #8B5CF6;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            font-weight: bold;
+            background: #f8f9fa;
+        }
+
+        .memory-frame.empty {
+            border-style: dashed;
+            color: #999;
+        }
+
+        .memory-frame.highlight {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+
+        .reference-string {
+            display: flex;
+            gap: 5px;
+            margin: 20px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .reference-item {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            background: white;
+        }
+
+        .reference-item.current {
+            background: #8B5CF6;
+            color: white;
+            border-color: #8B5CF6;
+        }
+
+        .reference-item.processed {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #8B5CF6;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #8B5CF6, #EC4899);
+            transition: width 0.3s;
+        }
+
+        .result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+        }
+
+        .result.correct {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .result.incorrect {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        .calculator-input {
+            margin: 15px 0;
+        }
+
+        .calculator-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .calculator-input input, .calculator-input select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .calculator-result {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .step-display {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .algorithm-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border-left: 4px solid #8B5CF6;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #8B5CF6;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .page-fault {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .page-hit {
+            color: #059669;
+            font-weight: bold;
+        }
+
+        .cow-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .process-box {
+            background: #e0e7ff;
+            border: 2px solid #6366f1;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            min-width: 120px;
+        }
+
+        .memory-box {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            min-width: 120px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 OS Page Replacement Study App</h1>
+            <p>Interactive learning for CSC1107 - Memory Management & Page Replacement</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="correct-count">0</div>
+                    <div>Correct</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div>Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="accuracy">0%</div>
+                    <div>Accuracy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('quiz')">📝 Quiz Mode</button>
+                <button class="mode-btn" onclick="setMode('flashcard')">🗂️ Flashcards</button>
+                <button class="mode-btn" onclick="setMode('simulator')">⚙️ Page Replacement Simulator</button>
+                <button class="mode-btn" onclick="setMode('calculator')">🧮 Performance Calculator</button>
+                <button class="mode-btn" onclick="setMode('concept')">🎯 Concepts</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <!-- Quiz Mode -->
+            <div id="quiz-mode" class="mode-content">
+                <div class="card fade-in">
+                    <div class="question" id="quiz-question">Loading question...</div>
+                    <div class="options" id="quiz-options"></div>
+                    <div class="result hidden" id="quiz-result"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-warning" onclick="resetStats()">Reset Stats</button>
+                </div>
+            </div>
+
+            <!-- Flashcard Mode -->
+            <div id="flashcard-mode" class="mode-content hidden">
+                <div class="card flashcard" onclick="flipCard()">
+                    <div class="flashcard-inner" id="flashcard-inner">
+                        <div class="flashcard-front" id="flashcard-front">
+                            Click to reveal answer
+                        </div>
+                        <div class="flashcard-back" id="flashcard-back">
+                            Answer will appear here
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="nextFlashcard()">Next Card</button>
+                    <button class="btn btn-primary" onclick="shuffleFlashcards()">Shuffle</button>
+                </div>
+            </div>
+
+            <!-- Page Replacement Simulator -->
+            <div id="simulator-mode" class="mode-content hidden">
+                <div class="card fade-in">
+                    <h3>Page Replacement Algorithm Simulator</h3>
+                    <div class="calculator-input">
+                        <label>Algorithm:</label>
+                        <select id="algorithm-select" onchange="resetSimulation()">
+                            <option value="fifo">FIFO (First In, First Out)</option>
+                            <option value="lru">LRU (Least Recently Used)</option>
+                            <option value="clock">Clock (Second Chance)</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                    
+                    <div class="calculator-input">
+                        <label>Memory Frames:</label>
+                        <input type="number" id="frame-count" value="3" min="2" max="6" onchange="resetSimulation()">
+                    </div>
+
+                    <div class="calculator-input">
+                        <label>Reference String (comma-separated):</label>
+                        <input type="text" id="reference-string" value="1,2,3,4,1,2,5,1,2,3,4,5" onchange="resetSimulation()">
+                    </div>
+
+                    <div class="simulator-container">
+                        <h4>Memory Frames:</h4>
+                        <div class="memory-frames" id="memory-frames"></div>
+                        
+                        <h4>Reference String:</h4>
+                        <div class="reference-string" id="reference-display"></div>
+                        
+                        <div id="step-info" class="step-display">
+                            Ready to start simulation...
+                        </div>
+
+                        <div class="algorithm-stats">
+                            <div class="stat-card">
+                                <div class="stat-value" id="page-faults">0</div>
+                                <div>Page Faults</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="page-hits">0</div>
+                                <div>Page Hits</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="fault-rate">0%</div>
+                                <div>Fault Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="stepSimulation()">Next Step</button>
+                    <button class="btn btn-success" onclick="runFullSimulation()">Run All</button>
+                    <button class="btn btn-warning" onclick="resetSimulation()">Reset</button>
+                    <button class="btn btn-danger" onclick="randomizeReference()">Random Reference</button>
+                </div>
+            </div>
+
+            <!-- Performance Calculator -->
+            <div id="calculator-mode" class="mode-content hidden">
+                <div class="card fade-in">
+                    <h3>Effective Access Time Calculator</h3>
+                    
+                    <div class="calculator-input">
+                        <label>Page Fault Rate (%):</label>
+                        <input type="number" id="fault-rate-input" value="0.1" min="0" max="100" step="0.1" oninput="calculateEAT()">
+                    </div>
+
+                    <div class="calculator-input">
+                        <label>Memory Access Time (ns):</label>
+                        <input type="number" id="memory-time-input" value="100" min="1" oninput="calculateEAT()">
+                    </div>
+
+                    <div class="calculator-input">
+                        <label>Page Fault Time (ms):</label>
+                        <input type="number" id="fault-time-input" value="10" min="1" step="0.1" oninput="calculateEAT()">
+                    </div>
+
+                    <div class="calculator-result" id="eat-result">
+                        <h4>Effective Access Time</h4>
+                        <div style="font-size: 1.5em; font-weight: bold; margin: 10px 0;" id="eat-value">10,100 ns</div>
+                        <div id="eat-slowdown">100x slower than normal memory access</div>
+                        <div id="eat-formula" style="margin-top: 15px; font-family: monospace;"></div>
+                    </div>
+
+                    <h3 style="margin-top: 30px;">Working Set Analysis</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="calculator-input">
+                            <label>Working Set Size (pages):</label>
+                            <input type="number" id="wss-input" value="50" min="1" oninput="analyzeWorkingSet()">
+                        </div>
+                        <div class="calculator-input">
+                            <label>Resident Set Size (pages):</label>
+                            <input type="number" id="rss-input" value="30" min="1" oninput="analyzeWorkingSet()">
+                        </div>
+                    </div>
+
+                    <div class="calculator-result" id="ws-result">
+                        <div id="ws-analysis">RSS < WSS: Process will experience frequent page faults</div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="loadPresetScenario('light')">Light Load Scenario</button>
+                    <button class="btn btn-warning" onclick="loadPresetScenario('heavy')">Heavy Load Scenario</button>
+                    <button class="btn btn-danger" onclick="loadPresetScenario('thrashing')">Thrashing Scenario</button>
+                </div>
+            </div>
+
+            <!-- Concept Mode -->
+            <div id="concept-mode" class="mode-content hidden">
+                <div class="card fade-in" id="concept-card">
+                    <div id="concept-content">Loading concept...</div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextConcept()">Next Concept</button>
+                    <button class="btn btn-success" onclick="randomConcept()">Random</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Study data
+        const quizData = [
+            {
+                question: "What is the main purpose of demand paging?",
+                options: [
+                    "To load all pages immediately",
+                    "To load pages into memory only when needed",
+                    "To prevent page faults",
+                    "To increase memory size"
+                ],
+                correct: 1,
+                explanation: "Demand paging implements lazy loading - pages are loaded into physical memory only when accessed, reducing memory usage and startup time."
+            },
+            {
+                question: "Calculate EAT with: fault rate 0.2%, memory time 100ns, fault time 8ms",
+                options: ["116ns", "800ns", "8,200ns", "16,100ns"],
+                correct: 2,
+                explanation: "EAT = (1-0.002)×100 + 0.002×8,000,000 = 99.8 + 16,000 = 16,099.8ns ≈ 16,100ns. Even small fault rates dramatically impact performance!"
+            },
+            {
+                question: "What is the difference between major and minor page faults?",
+                options: [
+                    "Major faults are more serious errors",
+                    "Minor faults happen less frequently",
+                    "Major faults require disk I/O, minor faults don't",
+                    "They are the same thing"
+                ],
+                correct: 2,
+                explanation: "Major faults require reading data from backing storage (expensive I/O). Minor faults occur when data is resident but mapped to different process (cheaper)."
+            },
+            {
+                question: "Which page replacement algorithm suffers from Belady's anomaly?",
+                options: ["LRU", "FIFO", "Clock", "Random"],
+                correct: 1,
+                explanation: "FIFO can have more page faults with more memory frames (Belady's anomaly). LRU and optimal algorithms don't suffer from this problem."
+            },
+            {
+                question: "What is Copy-on-Write (COW) used for?",
+                options: [
+                    "Copying files between processes",
+                    "Sharing pages between parent and child until write occurs",
+                    "Writing pages to swap space",
+                    "Copying page tables"
+                ],
+                correct: 1,
+                explanation: "COW allows parent and child processes to share physical pages initially. Only when a write occurs is a new physical frame allocated, saving memory."
+            },
+            {
+                question: "What does Linux swappiness parameter control?",
+                options: [
+                    "Swap partition size",
+                    "Number of swap files",
+                    "Frequency of swapping vs dropping cache pages",
+                    "Swap encryption"
+                ],
+                correct: 2,
+                explanation: "Swappiness (0-100) controls kernel preference for swapping out pages vs dropping cache pages. Lower values prefer keeping processes in memory."
+            },
+            {
+                question: "What triggers the OOM (Out-of-Memory) killer?",
+                options: [
+                    "High CPU usage",
+                    "Network congestion",
+                    "Insufficient memory and inability to free pages",
+                    "Disk space shortage"
+                ],
+                correct: 2,
+                explanation: "OOM killer activates when system runs out of memory and cannot free enough pages through normal means. It terminates processes to free memory."
+            },
+            {
+                question: "What is thrashing in memory management?",
+                options: [
+                    "Fast memory access",
+                    "Efficient page replacement",
+                    "System spending more time swapping than computing",
+                    "Cache optimization"
+                ],
+                correct: 2,
+                explanation: "Thrashing occurs when system is over-committed and spends most time swapping pages rather than useful computation, leading to severe performance degradation."
+            },
+            {
+                question: "What does W^X security policy enforce?",
+                options: [
+                    "Pages must be writable and executable",
+                    "Pages are either writable OR executable, never both",
+                    "All pages are write-protected",
+                    "Execute permissions are ignored"
+                ],
+                correct: 1,
+                explanation: "W^X (Write XOR Execute) prevents pages from being both writable and executable simultaneously, mitigating code injection attacks."
+            },
+            {
+                question: "In NUMA systems, what is the benefit of node-local allocation?",
+                options: [
+                    "Uses less memory",
+                    "Minimizes memory access latency",
+                    "Prevents page faults",
+                    "Increases cache size"
+                ],
+                correct: 1,
+                explanation: "Node-local allocation places memory close to the processor that allocated it, reducing memory access latency in NUMA architectures."
+            },
+            {
+                question: "What is the purpose of the Translation Lookaside Buffer (TLB)?",
+                options: [
+                    "Store recently accessed pages",
+                    "Cache virtual-to-physical address translations",
+                    "Buffer disk I/O operations",
+                    "Manage page replacement algorithms"
+                ],
+                correct: 1,
+                explanation: "TLB is a specialized cache that stores recent virtual-to-physical address translations to speed up memory access and avoid page table lookups."
+            },
+            {
+                question: "What does the 'dirty bit' in a page table entry indicate?",
+                options: [
+                    "Page contains invalid data",
+                    "Page has been modified since loaded",
+                    "Page is corrupted",
+                    "Page needs cleaning"
+                ],
+                correct: 1,
+                explanation: "The dirty bit (modified bit) indicates whether a page has been written to since it was loaded. Dirty pages must be written back to storage when replaced."
+            },
+            {
+                question: "What is the reference bit (access bit) used for?",
+                options: [
+                    "Count page references",
+                    "Track if page was recently accessed",
+                    "Store page addresses",
+                    "Link pages together"
+                ],
+                correct: 1,
+                explanation: "The reference bit is set by hardware when a page is accessed (read or write). It's used by page replacement algorithms like Clock/NRU to make replacement decisions."
+            },
+            {
+                question: "What does RSS (Resident Set Size) measure?",
+                options: [
+                    "Total virtual memory used",
+                    "Physical memory currently used by a process",
+                    "Swap space allocated",
+                    "Page fault frequency"
+                ],
+                correct: 1,
+                explanation: "RSS measures the amount of physical RAM currently occupied by a process's pages, excluding swapped-out pages."
+            },
+            {
+                question: "What is VSZ (Virtual Set Size) in process memory?",
+                options: [
+                    "Physical memory used",
+                    "Total virtual address space allocated",
+                    "Shared memory segments",
+                    "Stack size only"
+                ],
+                correct: 1,
+                explanation: "VSZ is the total virtual memory space allocated to a process, including all mapped regions regardless of whether they're resident in physical memory."
+            },
+            {
+                question: "What does the NRU (Not Recently Used) algorithm use for decisions?",
+                options: [
+                    "Access timestamps",
+                    "Reference and dirty bits only",
+                    "Page age counters",
+                    "Memory addresses"
+                ],
+                correct: 1,
+                explanation: "NRU uses only the reference bit and dirty bit to classify pages into 4 categories, providing a simple approximation of LRU."
+            },
+            {
+                question: "What is a Page Table Entry (PTE)?",
+                options: [
+                    "A cache line descriptor",
+                    "Mapping from virtual to physical page with control bits",
+                    "A process identifier",
+                    "A memory allocation request"
+                ],
+                correct: 1,
+                explanation: "PTE contains the physical page frame number and control bits (valid, dirty, reference, protection) for a virtual page mapping."
+            },
+            {
+                question: "What does ASLR (Address Space Layout Randomization) prevent?",
+                options: [
+                    "Memory leaks",
+                    "Buffer overflow exploits",
+                    "Page fragmentation",
+                    "Cache misses"
+                ],
+                correct: 1,
+                explanation: "ASLR randomizes memory layout to make it harder for attackers to predict addresses for exploitation, particularly buffer overflow attacks."
+            },
+            {
+                question: "What is segmented paging?",
+                options: [
+                    "Paging without segments",
+                    "Combination of segmentation and paging",
+                    "Large page allocation",
+                    "Page compression technique"
+                ],
+                correct: 1,
+                explanation: "Segmented paging combines segmentation (logical organization) with paging (physical memory management), used in systems like x86."
+            },
+            {
+                question: "What is the purpose of memory mapping (mmap)?",
+                options: [
+                    "Allocate heap memory",
+                    "Map files or devices into virtual address space",
+                    "Create page tables",
+                    "Enable swap space"
+                ],
+                correct: 1,
+                explanation: "mmap maps files or devices directly into a process's virtual address space, allowing file I/O through memory operations."
+            }
+        ];
+
+        const flashcards = [
+            {
+                front: "What is Demand Paging?",
+                back: "Lazy loading technique where pages are loaded into physical memory only when accessed. Reduces memory usage and startup time, but may cause page faults."
+            },
+            {
+                front: "Major vs Minor Page Faults",
+                back: "Major: Requires disk I/O to load page from backing storage (expensive)\nMinor: Page is resident but mapped to different process (cheaper)"
+            },
+            {
+                front: "Working Set Size (WSS)",
+                back: "Number of pages a process needs resident in memory to function efficiently. If RSS < WSS, frequent page faults occur."
+            },
+            {
+                front: "Page Replacement Necessity",
+                back: "When physical memory is full and new page must be loaded, OS selects 'victim page' to swap out, making room for new page."
+            },
+            {
+                front: "FIFO Algorithm",
+                back: "Simple queue-based replacement. Suffers from Belady's anomaly - more frames can cause more page faults. Easy to implement but suboptimal."
+            },
+            {
+                front: "LRU Algorithm",
+                back: "Replaces least recently used page. Excellent locality performance but expensive to implement. No Belady's anomaly."
+            },
+            {
+                front: "Clock Algorithm",
+                back: "Approximates LRU using circular list and access bits. Good compromise between performance and implementation complexity."
+            },
+            {
+                front: "Copy-on-Write Benefits",
+                back: "Parent/child processes share pages until write occurs. Saves memory, improves fork() performance, only allocates when necessary."
+            },
+            {
+                front: "Thrashing Symptoms",
+                back: "High page fault rate, low CPU utilization, system unresponsive. More time spent swapping than computing."
+            },
+            {
+                front: "Linux Memory Caches",
+                back: "Page Cache: File data in page chunks\nBuffer Cache: Block device optimization\nSwap Cache: Tracks swapped pages"
+            },
+            {
+                front: "ASLR Security",
+                back: "Address Space Layout Randomization makes memory layout unpredictable, preventing attackers from reliably exploiting buffer overflows."
+            },
+            {
+                front: "OOM Killer Strategy",
+                back: "Terminates processes when memory exhausted. Scores processes by memory usage, age, importance. Aims to free maximum memory with minimum kills."
+            }
+        ];
+
+        const concepts = [
+            {
+                title: "Page Replacement Algorithm Comparison",
+                content: `
+                    <h3>Performance Ranking:</h3>
+                    <ol>
+                        <li><strong>Optimal (OPT):</strong> Theoretical best - knows future references</li>
+                        <li><strong>LRU:</strong> Excellent practical performance, expensive to implement</li>
+                        <li><strong>Clock/NRU:</strong> Good approximation of LRU, reasonable cost</li>
+                        <li><strong>FIFO:</strong> Simple but suffers from Belady's anomaly</li>
+                        <li><strong>Random:</strong> Baseline performance, unpredictable</li>
+                    </ol>
+                    <h4>Key Trade-offs:</h4>
+                    <ul>
+                        <li><strong>Accuracy vs Cost:</strong> Better algorithms need more bookkeeping</li>
+                        <li><strong>Locality:</strong> LRU exploits temporal locality best</li>
+                        <li><strong>Simplicity:</strong> FIFO is simplest but least effective</li>
+                    </ul>
+                `
+            },
+            {
+                title: "Memory Management Performance Impact",
+                content: `
+                    <h3>Effective Access Time Analysis:</h3>
+                    <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                        <strong>Formula:</strong> EAT = (1-p) × mem_time + p × fault_time
+                    </div>
+                    <h4>Impact Examples:</h4>
+                    <ul>
+                        <li><strong>0.1% fault rate:</strong> 100x slowdown (10μs vs 100ns)</li>
+                        <li><strong>1% fault rate:</strong> 1000x slowdown (100μs vs 100ns)</li>
+                        <li><strong>10% fault rate:</strong> 10,000x slowdown (1ms vs 100ns)</li>
+                    </ul>
+                    <p><strong>Key Insight:</strong> Even tiny fault rates dramatically impact performance due to disk I/O latency!</p>
+                `
+            },
+            {
+                title: "Copy-on-Write Process Model",
+                content: `
+                    <div class="cow-diagram">
+                        <div class="process-box">
+                            <strong>Parent Process</strong><br>
+                            Pages 1,2,3
+                        </div>
+                        <div style="font-size: 2em;">→</div>
+                        <div class="memory-box">
+                            <strong>Shared Memory</strong><br>
+                            Physical frames: A,B,C
+                        </div>
+                        <div style="font-size: 2em;">←</div>
+                        <div class="process-box">
+                            <strong>Child Process</strong><br>
+                            Pages 1,2,3
+                        </div>
+                    </div>
+                    <h4>After Child Writes to Page 2:</h4>
+                    <ul>
+                        <li>New physical frame D allocated for child's page 2</li>
+                        <li>Parent still uses original frame B for page 2</li>
+                        <li>Pages 1 and 3 still shared (frames A and C)</li>
+                        <li>Memory usage: 4 frames instead of 6 without COW</li>
+                    </ul>
+                `
+            },
+            {
+                title: "Advanced Memory Management Features",
+                content: `
+                    <h3>Security Features:</h3>
+                    <ul>
+                        <li><strong>W^X Policy:</strong> Pages writable XOR executable (prevents code injection)</li>
+                        <li><strong>ASLR:</strong> Randomizes memory layout (harder to exploit)</li>
+                        <li><strong>Stack Guards:</strong> Detect buffer overflows</li>
+                    </ul>
+                    <h3>Performance Features:</h3>
+                    <ul>
+                        <li><strong>NUMA-aware allocation:</strong> Minimizes memory access latency</li>
+                        <li><strong>Huge pages:</strong> Reduces TLB pressure for large allocations</li>
+                        <li><strong>Memory caching:</strong> Page, buffer, and swap caches</li>
+                    </ul>
+                    <h3>Scalability Features:</h3>
+                    <ul>
+                        <li><strong>RDMA:</strong> Remote memory access for distributed systems</li>
+                        <li><strong>Memory compression:</strong> Compress unused pages instead of swapping</li>
+                        <li><strong>Memory hotplug:</strong> Add/remove memory without reboot</li>
+                    </ul>
+                `
+            }
+        ];
+
+        // Simulation state
+        let currentAlgorithm = 'fifo';
+        let memoryFrames = [];
+        let referenceString = [];
+        let currentStep = 0;
+        let pageFaults = 0;
+        let pageHits = 0;
+        let accessOrder = []; // For LRU
+        let clockHand = 0; // For clock algorithm
+        let accessBits = []; // For clock algorithm
+
+        // App state
+        let currentQuizIndex = 0;
+        let currentFlashcardIndex = 0;
+        let currentConceptIndex = 0;
+        let correctAnswers = 0;
+        let totalAnswers = 0;
+        let currentMode = 'quiz';
+        let answered = false;
+
+        // Initialize
+        function init() {
+            loadQuestion();
+            loadFlashcard();
+            loadConcept();
+            resetSimulation();
+            calculateEAT();
+            analyzeWorkingSet();
+            updateStats();
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(mode + '-mode').classList.remove('hidden');
+            
+            updateProgress();
+        }
+
+        // Quiz functionality
+        function loadQuestion() {
+            if (currentQuizIndex >= quizData.length) {
+                currentQuizIndex = 0;
+            }
+            
+            const question = quizData[currentQuizIndex];
+            document.getElementById('quiz-question').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(index);
+                optionsContainer.appendChild(optionDiv);
+            });
+            
+            document.getElementById('quiz-result').classList.add('hidden');
+            answered = false;
+        }
+
+        function selectOption(selectedIndex) {
+            if (answered) return;
+            
+            const question = quizData[currentQuizIndex];
+            const options = document.querySelectorAll('.option');
+            
+            options[selectedIndex].classList.add('selected');
+            
+            setTimeout(() => {
+                options.forEach((option, index) => {
+                    if (index === question.correct) {
+                        option.classList.add('correct');
+                    } else if (index === selectedIndex && index !== question.correct) {
+                        option.classList.add('incorrect');
+                    }
+                });
+                
+                const resultDiv = document.getElementById('quiz-result');
+                const isCorrect = selectedIndex === question.correct;
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                    resultDiv.className = 'result correct';
+                    resultDiv.innerHTML = `<strong>✅ Correct!</strong><div class="explanation">${question.explanation}</div>`;
+                } else {
+                    resultDiv.className = 'result incorrect';
+                    resultDiv.innerHTML = `<strong>❌ Incorrect!</strong><div class="explanation">${question.explanation}</div>`;
+                }
+                
+                totalAnswers++;
+                answered = true;
+                resultDiv.classList.remove('hidden');
+                updateStats();
+            }, 500);
+        }
+
+        function nextQuestion() {
+            currentQuizIndex++;
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Flashcard functionality
+        function loadFlashcard() {
+            if (currentFlashcardIndex >= flashcards.length) {
+                currentFlashcardIndex = 0;
+            }
+            
+            const card = flashcards[currentFlashcardIndex];
+            document.getElementById('flashcard-front').textContent = card.front;
+            document.getElementById('flashcard-back').innerHTML = card.back;
+            
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+
+        function flipCard() {
+            document.querySelector('.flashcard').classList.toggle('flipped');
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex++;
+            loadFlashcard();
+            updateProgress();
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentFlashcardIndex = 0;
+            loadFlashcard();
+        }
+
+        // Concept functionality
+        function loadConcept() {
+            if (currentConceptIndex >= concepts.length) {
+                currentConceptIndex = 0;
+            }
+            
+            const concept = concepts[currentConceptIndex];
+            document.getElementById('concept-content').innerHTML = `
+                <h2>${concept.title}</h2>
+                ${concept.content}
+            `;
+        }
+
+        function nextConcept() {
+            currentConceptIndex++;
+            loadConcept();
+            updateProgress();
+        }
+
+        function randomConcept() {
+            currentConceptIndex = Math.floor(Math.random() * concepts.length);
+            loadConcept();
+        }
+
+        // Page replacement simulator
+        function resetSimulation() {
+            currentAlgorithm = document.getElementById('algorithm-select').value;
+            const frameCount = parseInt(document.getElementById('frame-count').value);
+            const refString = document.getElementById('reference-string').value;
+            
+            // Initialize memory frames
+            memoryFrames = new Array(frameCount).fill(null);
+            referenceString = refString.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x));
+            currentStep = 0;
+            pageFaults = 0;
+            pageHits = 0;
+            accessOrder = [];
+            clockHand = 0;
+            accessBits = new Array(frameCount).fill(false);
+            
+            // Update display
+            updateMemoryDisplay();
+            updateReferenceDisplay();
+            updateStats();
+            
+            document.getElementById('step-info').textContent = 'Ready to start simulation...';
+        }
+
+        function updateMemoryDisplay() {
+            const container = document.getElementById('memory-frames');
+            container.innerHTML = '';
+            
+            memoryFrames.forEach((frame, index) => {
+                const frameDiv = document.createElement('div');
+                frameDiv.className = 'memory-frame';
+                
+                if (frame === null) {
+                    frameDiv.classList.add('empty');
+                    frameDiv.textContent = '—';
+                } else {
+                    frameDiv.textContent = frame;
+                    if (currentAlgorithm === 'clock' && index === clockHand) {
+                        frameDiv.classList.add('highlight');
+                    }
+                }
+                
+                container.appendChild(frameDiv);
+            });
+        }
+
+        function updateReferenceDisplay() {
+            const container = document.getElementById('reference-display');
+            container.innerHTML = '';
+            
+            referenceString.forEach((ref, index) => {
+                const refDiv = document.createElement('div');
+                refDiv.className = 'reference-item';
+                refDiv.textContent = ref;
+                
+                if (index === currentStep) {
+                    refDiv.classList.add('current');
+                } else if (index < currentStep) {
+                    refDiv.classList.add('processed');
+                }
+                
+                container.appendChild(refDiv);
+            });
+        }
+
+        function stepSimulation() {
+            if (currentStep >= referenceString.length) {
+                document.getElementById('step-info').textContent = 'Simulation complete!';
+                return;
+            }
+            
+            const page = referenceString[currentStep];
+            const result = processPageReference(page);
+            
+            currentStep++;
+            updateMemoryDisplay();
+            updateReferenceDisplay();
+            updateSimulationStats();
+            
+            const stepInfo = document.getElementById('step-info');
+            if (result.hit) {
+                stepInfo.innerHTML = `Step ${currentStep}: Page ${page} - <span class="page-hit">HIT</span>`;
+            } else {
+                stepInfo.innerHTML = `Step ${currentStep}: Page ${page} - <span class="page-fault">PAGE FAULT</span>`;
+                if (result.victim !== null) {
+                    stepInfo.innerHTML += ` (replaced ${result.victim})`;
+                }
+            }
+        }
+
+        function processPageReference(page) {
+            // Check if page is already in memory
+            const frameIndex = memoryFrames.indexOf(page);
+            
+            if (frameIndex !== -1) {
+                // Page hit
+                pageHits++;
+                
+                if (currentAlgorithm === 'lru') {
+                    // Update access order for LRU
+                    accessOrder = accessOrder.filter(p => p !== page);
+                    accessOrder.push(page);
+                } else if (currentAlgorithm === 'clock') {
+                    // Set access bit for clock
+                    accessBits[frameIndex] = true;
+                }
+                
+                return { hit: true, victim: null };
+            }
+            
+            // Page fault
+            pageFaults++;
+            
+            // Find empty frame first
+            const emptyIndex = memoryFrames.indexOf(null);
+            if (emptyIndex !== -1) {
+                memoryFrames[emptyIndex] = page;
+                
+                if (currentAlgorithm === 'lru') {
+                    accessOrder.push(page);
+                } else if (currentAlgorithm === 'clock') {
+                    accessBits[emptyIndex] = true;
+                }
+                
+                return { hit: false, victim: null };
+            }
+            
+            // Need to replace a page
+            let victimIndex = 0;
+            let victim = null;
+            
+            switch (currentAlgorithm) {
+                case 'fifo':
+                    // Replace oldest page (first in queue)
+                    victimIndex = 0;
+                    victim = memoryFrames[0];
+                    memoryFrames.shift();
+                    memoryFrames.push(page);
+                    break;
+                    
+                case 'lru':
+                    // Replace least recently used
+                    const lruPage = accessOrder[0];
+                    victimIndex = memoryFrames.indexOf(lruPage);
+                    victim = memoryFrames[victimIndex];
+                    memoryFrames[victimIndex] = page;
+                    accessOrder = accessOrder.filter(p => p !== lruPage);
+                    accessOrder.push(page);
+                    break;
+                    
+                case 'clock':
+                    // Clock algorithm
+                    while (accessBits[clockHand]) {
+                        accessBits[clockHand] = false;
+                        clockHand = (clockHand + 1) % memoryFrames.length;
+                    }
+                    victimIndex = clockHand;
+                    victim = memoryFrames[clockHand];
+                    memoryFrames[clockHand] = page;
+                    accessBits[clockHand] = true;
+                    clockHand = (clockHand + 1) % memoryFrames.length;
+                    break;
+                    
+                case 'random':
+                    // Random replacement
+                    victimIndex = Math.floor(Math.random() * memoryFrames.length);
+                    victim = memoryFrames[victimIndex];
+                    memoryFrames[victimIndex] = page;
+                    break;
+            }
+            
+            return { hit: false, victim: victim };
+        }
+
+        function runFullSimulation() {
+            while (currentStep < referenceString.length) {
+                stepSimulation();
+            }
+        }
+
+        function updateSimulationStats() {
+            document.getElementById('page-faults').textContent = pageFaults;
+            document.getElementById('page-hits').textContent = pageHits;
+            
+            const total = pageFaults + pageHits;
+            const faultRate = total > 0 ? ((pageFaults / total) * 100).toFixed(1) : 0;
+            document.getElementById('fault-rate').textContent = faultRate + '%';
+        }
+
+        function randomizeReference() {
+            const length = 10 + Math.floor(Math.random() * 10); // 10-20 references
+            const maxPage = 5 + Math.floor(Math.random() * 5); // Pages 1-10
+            const refs = [];
+            
+            for (let i = 0; i < length; i++) {
+                refs.push(Math.floor(Math.random() * maxPage) + 1);
+            }
+            
+            document.getElementById('reference-string').value = refs.join(',');
+            resetSimulation();
+        }
+
+        // Performance calculator
+        function calculateEAT() {
+            const faultRate = parseFloat(document.getElementById('fault-rate-input').value) / 100;
+            const memoryTime = parseFloat(document.getElementById('memory-time-input').value);
+            const faultTimeMs = parseFloat(document.getElementById('fault-time-input').value);
+            const faultTimeNs = faultTimeMs * 1000000; // Convert ms to ns
+            
+            const eat = (1 - faultRate) * memoryTime + faultRate * faultTimeNs;
+            const slowdown = Math.round(eat / memoryTime);
+            
+            document.getElementById('eat-value').textContent = Math.round(eat).toLocaleString() + ' ns';
+            document.getElementById('eat-slowdown').textContent = slowdown + 'x slower than normal memory access';
+            
+            const formula = `EAT = (1-${faultRate.toFixed(3)}) × ${memoryTime}ns + ${faultRate.toFixed(3)} × ${faultTimeNs.toLocaleString()}ns = ${Math.round(eat).toLocaleString()}ns`;
+            document.getElementById('eat-formula').textContent = formula;
+        }
+
+        function analyzeWorkingSet() {
+            const wss = parseInt(document.getElementById('wss-input').value);
+            const rss = parseInt(document.getElementById('rss-input').value);
+            
+            let analysis = '';
+            if (rss < wss) {
+                analysis = `RSS < WSS (${rss} < ${wss}): Process will experience frequent page faults and poor performance`;
+            } else if (rss === wss) {
+                analysis = `RSS = WSS (${rss} = ${wss}): Process has optimal memory allocation`;
+            } else {
+                analysis = `RSS > WSS (${rss} > ${wss}): Process has extra memory, good performance but potential waste`;
+            }
+            
+            document.getElementById('ws-analysis').textContent = analysis;
+        }
+
+        function loadPresetScenario(type) {
+            switch (type) {
+                case 'light':
+                    document.getElementById('fault-rate-input').value = '0.05';
+                    document.getElementById('memory-time-input').value = '100';
+                    document.getElementById('fault-time-input').value = '8';
+                    document.getElementById('wss-input').value = '20';
+                    document.getElementById('rss-input').value = '25';
+                    break;
+                case 'heavy':
+                    document.getElementById('fault-rate-input').value = '0.5';
+                    document.getElementById('memory-time-input').value = '120';
+                    document.getElementById('fault-time-input').value = '12';
+                    document.getElementById('wss-input').value = '100';
+                    document.getElementById('rss-input').value = '80';
+                    break;
+                case 'thrashing':
+                    document.getElementById('fault-rate-input').value = '15';
+                    document.getElementById('memory-time-input').value = '150';
+                    document.getElementById('fault-time-input').value = '15';
+                    document.getElementById('wss-input').value = '500';
+                    document.getElementById('rss-input').value = '50';
+                    break;
+            }
+            calculateEAT();
+            analyzeWorkingSet();
+        }
+
+        // Stats and progress
+        function updateStats() {
+            document.getElementById('correct-count').textContent = correctAnswers;
+            document.getElementById('total-count').textContent = totalAnswers;
+            document.getElementById('accuracy').textContent = 
+                totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) + '%' : '0%';
+        }
+
+        function updateProgress() {
+            let progress = 0;
+            if (currentMode === 'quiz') {
+                progress = (currentQuizIndex / quizData.length) * 100;
+            } else if (currentMode === 'flashcard') {
+                progress = (currentFlashcardIndex / flashcards.length) * 100;
+            } else if (currentMode === 'concept') {
+                progress = (currentConceptIndex / concepts.length) * 100;
+            } else if (currentMode === 'simulator') {
+                progress = referenceString.length > 0 ? (currentStep / referenceString.length) * 100 : 0;
+            } else if (currentMode === 'calculator') {
+                progress = 100; // Always complete for calculator
+            }
+            
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function resetStats() {
+            correctAnswers = 0;
+            totalAnswers = 0;
+            currentQuizIndex = 0;
+            updateStats();
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>

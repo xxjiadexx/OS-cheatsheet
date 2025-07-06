@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS File Systems Study App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-left: 5px solid #FF6B6B;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+        }
+
+        .option:hover {
+            border-color: #FF6B6B;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            background: #ffe3e3;
+            border-color: #FF6B6B;
+        }
+
+        .option.correct {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+
+        .option.incorrect {
+            background: #ffcdd2;
+            border-color: #f44336;
+        }
+
+        .flashcard {
+            min-height: 250px;
+            perspective: 1000px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 1.2em;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(45deg, #FFB74D, #FFF176);
+            color: #333;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(45deg, #81C784, #AED581);
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #FF6B6B;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            transition: width 0.3s;
+        }
+
+        .result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+        }
+
+        .result.correct {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .result.incorrect {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        .chmod-calculator {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .permission-set {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #ddd;
+        }
+
+        .permission-set h4 {
+            margin-bottom: 10px;
+            color: #FF6B6B;
+        }
+
+        .permission-checkboxes {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px 0;
+        }
+
+        .permission-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .permission-checkboxes input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+
+        .octal-result {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
+
+        .symbolic-result {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .file-structure-diagram {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .directory-tree {
+            line-height: 1.8;
+        }
+
+        .directory-tree .folder {
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        .directory-tree .file {
+            color: #2ecc71;
+        }
+
+        .command-example {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .command-example .prompt {
+            color: #e74c3c;
+        }
+
+        .command-example .command {
+            color: #f39c12;
+        }
+
+        .command-example .output {
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 OS File Systems Study App</h1>
+            <p>Interactive learning for CSC1107 - File Systems & Directory Management</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="correct-count">0</div>
+                    <div>Correct</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div>Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="accuracy">0%</div>
+                    <div>Accuracy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('quiz')">📝 Quiz Mode</button>
+                <button class="mode-btn" onclick="setMode('flashcard')">🗂️ Flashcards</button>
+                <button class="mode-btn" onclick="setMode('chmod')">🔧 Chmod Calculator</button>
+                <button class="mode-btn" onclick="setMode('concept')">🎯 Concepts</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <!-- Quiz Mode -->
+            <div id="quiz-mode" class="mode-content">
+                <div class="card fade-in">
+                    <div class="question" id="quiz-question">Loading question...</div>
+                    <div class="options" id="quiz-options"></div>
+                    <div class="result hidden" id="quiz-result"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-warning" onclick="resetStats()">Reset Stats</button>
+                </div>
+            </div>
+
+            <!-- Flashcard Mode -->
+            <div id="flashcard-mode" class="mode-content hidden">
+                <div class="card flashcard" onclick="flipCard()">
+                    <div class="flashcard-inner" id="flashcard-inner">
+                        <div class="flashcard-front" id="flashcard-front">
+                            Click to reveal answer
+                        </div>
+                        <div class="flashcard-back" id="flashcard-back">
+                            Answer will appear here
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="nextFlashcard()">Next Card</button>
+                    <button class="btn btn-primary" onclick="shuffleFlashcards()">Shuffle</button>
+                </div>
+            </div>
+
+            <!-- Chmod Calculator Mode -->
+            <div id="chmod-mode" class="mode-content hidden">
+                <div class="card fade-in">
+                    <h3>Unix File Permission Calculator</h3>
+                    <div class="chmod-calculator">
+                        <div class="permission-grid">
+                            <div class="permission-set">
+                                <h4>Owner (User)</h4>
+                                <div class="permission-checkboxes">
+                                    <label><input type="checkbox" id="owner-read" onchange="updateChmod()"> Read</label>
+                                    <label><input type="checkbox" id="owner-write" onchange="updateChmod()"> Write</label>
+                                    <label><input type="checkbox" id="owner-execute" onchange="updateChmod()"> Execute</label>
+                                </div>
+                                <div class="octal-result" id="owner-octal">0</div>
+                            </div>
+                            
+                            <div class="permission-set">
+                                <h4>Group</h4>
+                                <div class="permission-checkboxes">
+                                    <label><input type="checkbox" id="group-read" onchange="updateChmod()"> Read</label>
+                                    <label><input type="checkbox" id="group-write" onchange="updateChmod()"> Write</label>
+                                    <label><input type="checkbox" id="group-execute" onchange="updateChmod()"> Execute</label>
+                                </div>
+                                <div class="octal-result" id="group-octal">0</div>
+                            </div>
+                            
+                            <div class="permission-set">
+                                <h4>Others</h4>
+                                <div class="permission-checkboxes">
+                                    <label><input type="checkbox" id="others-read" onchange="updateChmod()"> Read</label>
+                                    <label><input type="checkbox" id="others-write" onchange="updateChmod()"> Write</label>
+                                    <label><input type="checkbox" id="others-execute" onchange="updateChmod()"> Execute</label>
+                                </div>
+                                <div class="octal-result" id="others-octal">0</div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 20px 0;">
+                            <h3>Command: <span id="chmod-command">chmod 000 filename</span></h3>
+                            <div class="symbolic-result" id="symbolic-permissions">---------</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="loadChmodExample('example1')">Example: 755</button>
+                    <button class="btn btn-success" onclick="loadChmodExample('example2')">Example: 644</button>
+                    <button class="btn btn-warning" onclick="clearPermissions()">Clear All</button>
+                </div>
+            </div>
+
+            <!-- Concept Mode -->
+            <div id="concept-mode" class="mode-content hidden">
+                <div class="card fade-in" id="concept-card">
+                    <div id="concept-content">Loading concept...</div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextConcept()">Next Concept</button>
+                    <button class="btn btn-success" onclick="randomConcept()">Random</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Study data
+        const quizData = [
+            {
+                question: "What are the four main reasons we need file systems?",
+                options: [
+                    "Speed, Security, Safety, Sharing",
+                    "Data persistence, Data organization, Metadata, Protection",
+                    "Reading, Writing, Creating, Deleting",
+                    "Hardware, Software, Firmware, Middleware"
+                ],
+                correct: 1,
+                explanation: "File systems provide: 1) Data persistence (unlike volatile RAM), 2) Data organization (structure), 3) Metadata (info about data), 4) Protection (access permissions)."
+            },
+            {
+                question: "Which file attribute is the only one kept in human-readable form?",
+                options: ["Size", "Location", "Name", "Type"],
+                correct: 2,
+                explanation: "The file name is the only file attribute kept in human-readable form. All other attributes like identifier, location, size, etc. are stored as numbers or binary data."
+            },
+            {
+                question: "What does the 'stat' command show in Unix/Linux?",
+                options: [
+                    "File contents",
+                    "File metadata/attributes",
+                    "File permissions only", 
+                    "Directory structure"
+                ],
+                correct: 1,
+                explanation: "The 'stat' command displays file metadata including size, permissions, timestamps, inode number, and other file attributes."
+            },
+            {
+                question: "Which file operation moves content from memory to disk?",
+                options: ["fopen", "fclose", "fread", "fseek"],
+                correct: 1,
+                explanation: "fclose() moves the content of a file entry from memory back to the directory structure on disk, ensuring data persistence."
+            },
+            {
+                question: "What does the OS maintain to track opened files?",
+                options: [
+                    "File cache table",
+                    "Open file table", 
+                    "Directory index",
+                    "Permission matrix"
+                ],
+                correct: 1,
+                explanation: "The OS maintains an open file table that tracks all currently opened files, including access rights, read/write pointers, and reference counts."
+            },
+            {
+                question: "Which file access method allows seeking to offset N for the Nth record?",
+                options: [
+                    "Sequential access",
+                    "Direct access",
+                    "Side-index access",
+                    "Random access"
+                ],
+                correct: 1,
+                explanation: "Direct access (random access) allows seeking to a specific offset N when you have fixed record structure, knowing the Nth record will be at that location."
+            },
+            {
+                question: "What are the three main benefits of using directories?",
+                options: [
+                    "Speed, Size, Security",
+                    "Efficiency, Grouping, Naming",
+                    "Reading, Writing, Executing",
+                    "Local, Remote, Distributed"
+                ],
+                correct: 1,
+                explanation: "Directories provide: 1) Efficiency (organizing and locating files), 2) Grouping (logical collections), 3) Naming (same filenames in different directories)."
+            },
+            {
+                question: "Which directory structure allows the same file to have multiple names?",
+                options: [
+                    "Tree-structured directories",
+                    "Acyclic graph directories", 
+                    "Linear directories",
+                    "Hierarchical directories"
+                ],
+                correct: 1,
+                explanation: "Acyclic graph directories allow the same file to have multiple names through links/pointers. Unix uses this structure with hard links and soft links."
+            },
+            {
+                question: "What happens when you delete a file that has soft links pointing to it?",
+                options: [
+                    "All soft links are automatically deleted",
+                    "Soft links become dangling pointers",
+                    "The file cannot be deleted",
+                    "Soft links are converted to hard links"
+                ],
+                correct: 1,
+                explanation: "When the original file is deleted, soft links (symbolic links) become dangling pointers - they point to a file that no longer exists."
+            },
+            {
+                question: "What must happen before a file system can be accessed?",
+                options: [
+                    "It must be formatted",
+                    "It must be mounted",
+                    "It must be partitioned", 
+                    "It must be encrypted"
+                ],
+                correct: 1,
+                explanation: "A file system must be mounted at a mount point before it can be accessed. This connects the file system to the directory tree structure."
+            },
+            {
+                question: "In Unix file permissions, what does 'rwx' represent for each permission set?",
+                options: [
+                    "read, write, execute",
+                    "recursive, write, exclusive",
+                    "random, write, extended",
+                    "real, write, extra"
+                ],
+                correct: 0,
+                explanation: "In Unix, 'rwx' stands for read, write, and execute permissions respectively. Each forms a 3-bit permission set ranging from 0 to 7."
+            },
+            {
+                question: "How many permission bits are there in total for a Unix file?",
+                options: ["3 bits", "6 bits", "9 bits", "12 bits"],
+                correct: 2,
+                explanation: "Unix files have 9 permission bits total: 3 sets of rwx permissions for user (owner), group, and others (3 × 3 = 9 bits)."
+            },
+            {
+                question: "What does the chmod command 'chmod 664 file.txt' set?",
+                options: [
+                    "owner rwx, group rw, other r",
+                    "owner rw, group rw, other r", 
+                    "owner rw, group r, other rw",
+                    "owner r, group rw, other rw"
+                ],
+                correct: 1,
+                explanation: "chmod 664: 6=rw (owner read/write), 6=rw (group read/write), 4=r (others read only). Octal 6=110=rw, 4=100=r."
+            },
+            {
+                question: "What is the difference between strict and eventual consistency in shared files?",
+                options: [
+                    "Strict is faster than eventual",
+                    "Strict shows writes immediately, eventual shows after file close/reopen",
+                    "They are the same thing",
+                    "Eventual is more secure than strict"
+                ],
+                correct: 1,
+                explanation: "Strict consistency shows writes to shared files immediately (expensive), while eventual consistency shows writes after file is closed and reopened (cheaper but can cause conflicts)."
+            },
+            {
+                question: "Which command creates a hard link in Unix?",
+                options: ["ln -s", "ln", "link", "symlink"],
+                correct: 1,
+                explanation: "The 'ln' command creates hard links. 'ln -s' creates soft links (symbolic links). Hard links point to the same inode as the original file."
+            },
+            {
+                question: "What does reference counting help prevent in acyclic graph directories?",
+                options: [
+                    "File corruption",
+                    "Unsafe deletion of files with multiple links",
+                    "Permission violations", 
+                    "Directory loops"
+                ],
+                correct: 1,
+                explanation: "Reference counting tracks how many links point to a file, preventing unsafe deletion. The file is only actually deleted when the reference count reaches zero."
+            },
+            {
+                question: "What type of file structure is a CSV file an example of?",
+                options: [
+                    "None - sequence of bytes",
+                    "Simple record structure - fixed length",
+                    "Complex structure",
+                    "Side-indexed structure"
+                ],
+                correct: 1,
+                explanation: "CSV files are an example of simple record structure with fixed-length records, where each line represents a record with comma-separated fields."
+            },
+            {
+                question: "Which access method is best for database files?",
+                options: [
+                    "Sequential access",
+                    "Direct access",
+                    "Side-index access",
+                    "Random access"
+                ],
+                correct: 2,
+                explanation: "Side-index access is best for complex files like databases, providing efficient access through indexes to locate specific records quickly."
+            },
+            {
+                question: "What does the 'lsof' utility in Linux show?",
+                options: [
+                    "List of files in directory",
+                    "List of open files",
+                    "List of file permissions",
+                    "List of file sizes"
+                ],
+                correct: 1,
+                explanation: "The 'lsof' (list open files) utility shows all files that are currently opened by processes, along with which processes have them open."
+            },
+            {
+                question: "What is the main advantage of tree-structured directories over flat directories?",
+                options: [
+                    "Faster file access",
+                    "Efficient searching and grouping",
+                    "Better security",
+                    "Larger file storage"
+                ],
+                correct: 1,
+                explanation: "Tree-structured directories provide efficient searching and grouping, allow for logical organization, and support the concept of working directory and relative paths."
+            },
+            {
+                question: "In Unix, what does 'chmod 755 script.sh' accomplish?",
+                options: [
+                    "Owner: rwx, Group: rx, Others: rx",
+                    "Owner: rw, Group: rw, Others: rw",
+                    "Owner: rx, Group: rwx, Others: rx",
+                    "Owner: rwx, Group: rwx, Others: rwx"
+                ],
+                correct: 0,
+                explanation: "chmod 755: 7=rwx (owner read/write/execute), 5=r-x (group read/execute), 5=r-x (others read/execute). Common for executable scripts."
+            },
+            {
+                question: "What happens when the last process closes a file?",
+                options: [
+                    "File is deleted",
+                    "File is compressed",
+                    "OS removes data from open file table",
+                    "File permissions are reset"
+                ],
+                correct: 2,
+                explanation: "When the last process closes a file, the OS removes the file's data from the open file table, freeing up system resources."
+            },
+            {
+                question: "Which file operation searches the directory structure on disk?",
+                options: ["fopen", "fclose", "fread", "fwrite"],
+                correct: 0,
+                explanation: "fopen() searches the directory structure on disk for the specified file entry and moves its content to memory for access."
+            },
+            {
+                question: "What type of consistency is cheaper but may lead to write conflicts?",
+                options: [
+                    "Strict consistency",
+                    "Eventual consistency",
+                    "Strong consistency",
+                    "Immediate consistency"
+                ],
+                correct: 1,
+                explanation: "Eventual consistency is cheaper to implement but may lead to write conflicts since changes become visible only after file close/reopen cycles."
+            }
+        ];
+
+        const flashcards = [
+            {
+                front: "Why do we need File Systems?",
+                back: "1) Data persistence (unlike volatile RAM)\n2) Data organization (structure)\n3) Metadata (info about data)\n4) Protection (access permissions)"
+            },
+            {
+                front: "File Attributes (Metadata)",
+                back: "Name (human-readable), Identifier (unique tag), Type, Location (pointer), Size, Protection (permissions), Time/date stamps. Stored in directory structure on disk."
+            },
+            {
+                front: "Core File Operations",
+                back: "Create, Write (fwrite), Read (fread), Reposition (fseek), Delete (remove), Truncate (ftruncate), Open (fopen), Close (fclose)"
+            },
+            {
+                front: "Open File Table",
+                back: "OS maintains table tracking opened files with per-process file handles, access rights, read/write pointers, and reference counts."
+            },
+            {
+                front: "File Structure Types",
+                back: "None (byte sequence), Simple records (lines, fixed/variable length), Complex structures (formatted docs, object files)"
+            },
+            {
+                front: "File Access Methods",
+                back: "Sequential: byte-by-byte from start\nDirect: seek to offset N for Nth record\nSide-index: complex files with indexes (databases)"
+            },
+            {
+                front: "Directory Benefits",
+                back: "Efficiency (organizing/locating files), Grouping (logical collections), Naming (same names in different dirs)"
+            },
+            {
+                front: "Tree vs Acyclic Graph Directories",
+                back: "Tree: Each file has one name, hierarchical structure\nAcyclic Graph: Same file can have multiple names through links, reference counting for deletion"
+            },
+            {
+                front: "Hard Links vs Soft Links",
+                back: "Hard links: Point to same inode, reference counted\nSoft links (symlinks): Point to pathname, can become dangling pointers"
+            },
+            {
+                front: "Unix File Permissions",
+                back: "9 bits total: rwx for user, group, others\nr=4, w=2, x=1\nchmod 755 = rwxr-xr-x\nchmod 644 = rw-r--r--"
+            },
+            {
+                front: "Mounting File Systems",
+                back: "File system must be mounted at mount point before access. Connects file system to directory tree structure (/mnt or drive letters)."
+            },
+            {
+                front: "File Sharing Consistency",
+                back: "Strict: Writes visible immediately (expensive)\nEventual: Writes visible after close/reopen (cheaper, may cause conflicts)"
+            }
+        ];
+
+        const concepts = [
+            {
+                title: "File System Architecture Overview",
+                content: `
+                    <div class="file-structure-diagram">
+                        <h3>Typical File System Structure:</h3>
+                        <div class="directory-tree">
+                            <span class="folder">/ (root)</span><br>
+                            ├── <span class="folder">bin/</span> (system binaries)<br>
+                            ├── <span class="folder">etc/</span> (configuration files)<br>
+                            ├── <span class="folder">home/</span><br>
+                            │   ├── <span class="folder">user1/</span><br>
+                            │   │   ├── <span class="file">document.txt</span><br>
+                            │   │   └── <span class="file">script.sh</span><br>
+                            │   └── <span class="folder">user2/</span><br>
+                            ├── <span class="folder">tmp/</span> (temporary files)<br>
+                            └── <span class="folder">var/</span> (variable data)
+                        </div>
+                    </div>
+                    <h4>Key Components:</h4>
+                    <ul>
+                        <li><strong>Files:</strong> Named collections of data with metadata</li>
+                        <li><strong>Directories:</strong> Containers organizing files hierarchically</li>
+                        <li><strong>Links:</strong> References to files (hard/soft)</li>
+                        <li><strong>Mount Points:</strong> Integration points for different file systems</li>
+                    </ul>
+                `
+            },
+            {
+                title: "Unix Permission System Deep Dive",
+                content: `
+                    <h3>Permission Bit Calculation:</h3>
+                    <div class="command-example">
+                        <div class="prompt">$</div> <span class="command">ls -l example.txt</span><br>
+                        <span class="output">-rw-r--r-- 1 user group 1024 Jan 1 12:00 example.txt</span>
+                    </div>
+                    
+                    <h4>Breaking down -rw-r--r--:</h4>
+                    <ul>
+                        <li><strong>-:</strong> File type (- = regular file, d = directory)</li>
+                        <li><strong>rw-:</strong> Owner permissions (read, write, no execute)</li>
+                        <li><strong>r--:</strong> Group permissions (read only)</li>
+                        <li><strong>r--:</strong> Others permissions (read only)</li>
+                    </ul>
+                    
+                    <h4>Octal Calculation:</h4>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                        Owner: rw- = 4+2+0 = 6<br>
+                        Group: r-- = 4+0+0 = 4<br>
+                        Others: r-- = 4+0+0 = 4<br>
+                        <strong>Result: 644</strong>
+                    </div>
+                `
+            },
+            {
+                title: "Directory Structure Comparison",
+                content: `
+                    <h3>Tree-Structured vs Acyclic Graph:</h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div style="background: #e8f4fd; padding: 15px; border-radius: 10px;">
+                            <h4>Tree-Structured (DOS/Early Windows):</h4>
+                            <ul>
+                                <li>Each file has exactly one name</li>
+                                <li>Simple parent-child relationships</li>
+                                <li>Easy to implement</li>
+                                <li>No shared files</li>
+                                <li>Deletion is straightforward</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: #f0f9ff; padding: 15px; border-radius: 10px;">
+                            <h4>Acyclic Graph (Unix/Linux):</h4>
+                            <ul>
+                                <li>Files can have multiple names (links)</li>
+                                <li>Supports hard and soft links</li>
+                                <li>Enables file sharing</li>
+                                <li>Requires reference counting</li>
+                                <li>Complex deletion semantics</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h4>Link Types:</h4>
+                    <div class="command-example">
+                        <div class="prompt">$</div> <span class="command">ln original.txt hardlink.txt</span> # Hard link<br>
+                        <div class="prompt">$</div> <span class="command">ln -s original.txt softlink.txt</span> # Soft link
+                    </div>
+                `
+            },
+            {
+                title: "File Access Patterns & Performance",
+                content: `
+                    <h3>Access Method Comparison:</h3>
+                    
+                    <table border="1" style="width:100%; border-collapse:collapse; margin: 15px 0;">
+                        <tr style="background: #f8f9fa;">
+                            <th>Access Method</th><th>Use Case</th><th>Performance</th><th>Complexity</th>
+                        </tr>
+                        <tr>
+                            <td><strong>Sequential</strong></td>
+                            <td>Log files, streaming</td>
+                            <td>Simple, fast for linear access</td>
+                            <td>Low</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Direct (Random)</strong></td>
+                            <td>Fixed-record files</td>
+                            <td>Fast for known positions</td>
+                            <td>Medium</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Side-Index</strong></td>
+                            <td>Databases, complex queries</td>
+                            <td>Very fast with good indexes</td>
+                            <td>High</td>
+                        </tr>
+                    </table>
+                    
+                    <h4>File Structure Examples:</h4>
+                    <ul>
+                        <li><strong>Unstructured:</strong> Binary data, images, executables</li>
+                        <li><strong>Line-based:</strong> Text files, configuration files</li>
+                        <li><strong>Fixed records:</strong> CSV, database tables</li>
+                        <li><strong>Variable records:</strong> JSON, XML</li>
+                        <li><strong>Complex:</strong> PDF, Word documents, executables</li>
+                    </ul>
+                `
+            },
+            {
+                title: "File Sharing & Remote Systems",
+                content: `
+                    <h3>Multi-User File Sharing Challenges:</h3>
+                    
+                    <h4>Consistency Models:</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0;">
+                        <div style="background: #ffe8e8; padding: 15px; border-radius: 8px;">
+                            <h5>Strict Consistency</h5>
+                            <ul>
+                                <li>Writes visible immediately</li>
+                                <li>Very expensive to implement</li>
+                                <li>Requires constant synchronization</li>
+                                <li>Used in mission-critical systems</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px;">
+                            <h5>Eventual Consistency</h5>
+                            <ul>
+                                <li>Writes visible after close/reopen</li>
+                                <li>Cheaper to implement</li>
+                                <li>May lead to write conflicts</li>
+                                <li>Common in distributed systems</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h4>Remote File System Examples:</h4>
+                    <ul>
+                        <li><strong>FTP:</strong> File Transfer Protocol</li>
+                        <li><strong>Git:</strong> Distributed version control</li>
+                        <li><strong>OneDrive/Dropbox:</strong> Cloud storage</li>
+                        <li><strong>NFS:</strong> Network File System</li>
+                        <li><strong>SMB/CIFS:</strong> Windows file sharing</li>
+                    </ul>
+                `
+            }
+        ];
+
+        // State management
+        let currentQuizIndex = 0;
+        let currentFlashcardIndex = 0;
+        let currentConceptIndex = 0;
+        let correctAnswers = 0;
+        let totalAnswers = 0;
+        let currentMode = 'quiz';
+        let answered = false;
+
+        // Initialize
+        function init() {
+            loadQuestion();
+            loadFlashcard();
+            loadConcept();
+            updateChmod();
+            updateStats();
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(mode + '-mode').classList.remove('hidden');
+            
+            updateProgress();
+        }
+
+        // Quiz functionality
+        function loadQuestion() {
+            if (currentQuizIndex >= quizData.length) {
+                currentQuizIndex = 0;
+            }
+            
+            const question = quizData[currentQuizIndex];
+            document.getElementById('quiz-question').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(index);
+                optionsContainer.appendChild(optionDiv);
+            });
+            
+            document.getElementById('quiz-result').classList.add('hidden');
+            answered = false;
+        }
+
+        function selectOption(selectedIndex) {
+            if (answered) return;
+            
+            const question = quizData[currentQuizIndex];
+            const options = document.querySelectorAll('.option');
+            
+            options[selectedIndex].classList.add('selected');
+            
+            setTimeout(() => {
+                options.forEach((option, index) => {
+                    if (index === question.correct) {
+                        option.classList.add('correct');
+                    } else if (index === selectedIndex && index !== question.correct) {
+                        option.classList.add('incorrect');
+                    }
+                });
+                
+                const resultDiv = document.getElementById('quiz-result');
+                const isCorrect = selectedIndex === question.correct;
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                    resultDiv.className = 'result correct';
+                    resultDiv.innerHTML = `<strong>✅ Correct!</strong><div class="explanation">${question.explanation}</div>`;
+                } else {
+                    resultDiv.className = 'result incorrect';
+                    resultDiv.innerHTML = `<strong>❌ Incorrect!</strong><div class="explanation">${question.explanation}</div>`;
+                }
+                
+                totalAnswers++;
+                answered = true;
+                resultDiv.classList.remove('hidden');
+                updateStats();
+            }, 500);
+        }
+
+        function nextQuestion() {
+            currentQuizIndex++;
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Flashcard functionality
+        function loadFlashcard() {
+            if (currentFlashcardIndex >= flashcards.length) {
+                currentFlashcardIndex = 0;
+            }
+            
+            const card = flashcards[currentFlashcardIndex];
+            document.getElementById('flashcard-front').textContent = card.front;
+            document.getElementById('flashcard-back').innerHTML = card.back;
+            
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+
+        function flipCard() {
+            document.querySelector('.flashcard').classList.toggle('flipped');
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex++;
+            loadFlashcard();
+            updateProgress();
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentFlashcardIndex = 0;
+            loadFlashcard();
+        }
+
+        // Chmod calculator functionality
+        function updateChmod() {
+            const ownerBits = getPermissionBits('owner');
+            const groupBits = getPermissionBits('group');
+            const othersBits = getPermissionBits('others');
+            
+            document.getElementById('owner-octal').textContent = ownerBits;
+            document.getElementById('group-octal').textContent = groupBits;
+            document.getElementById('others-octal').textContent = othersBits;
+            
+            const command = `chmod ${ownerBits}${groupBits}${othersBits} filename`;
+            document.getElementById('chmod-command').textContent = command;
+            
+            const symbolic = getSymbolicPermissions(ownerBits, groupBits, othersBits);
+            document.getElementById('symbolic-permissions').textContent = symbolic;
+        }
+
+        function getPermissionBits(type) {
+            const read = document.getElementById(`${type}-read`).checked ? 4 : 0;
+            const write = document.getElementById(`${type}-write`).checked ? 2 : 0;
+            const execute = document.getElementById(`${type}-execute`).checked ? 1 : 0;
+            return read + write + execute;
+        }
+
+        function getSymbolicPermissions(owner, group, others) {
+            const convert = (bits) => {
+                const r = (bits & 4) ? 'r' : '-';
+                const w = (bits & 2) ? 'w' : '-';
+                const x = (bits & 1) ? 'x' : '-';
+                return r + w + x;
+            };
+            
+            return convert(owner) + convert(group) + convert(others);
+        }
+
+        function loadChmodExample(example) {
+            if (example === 'example1') {
+                // chmod 755
+                setPermissions('owner', [true, true, true]);
+                setPermissions('group', [true, false, true]);
+                setPermissions('others', [true, false, true]);
+            } else if (example === 'example2') {
+                // chmod 644
+                setPermissions('owner', [true, true, false]);
+                setPermissions('group', [true, false, false]);
+                setPermissions('others', [true, false, false]);
+            }
+            updateChmod();
+        }
+
+        function setPermissions(type, permissions) {
+            document.getElementById(`${type}-read`).checked = permissions[0];
+            document.getElementById(`${type}-write`).checked = permissions[1];
+            document.getElementById(`${type}-execute`).checked = permissions[2];
+        }
+
+        function clearPermissions() {
+            ['owner', 'group', 'others'].forEach(type => {
+                setPermissions(type, [false, false, false]);
+            });
+            updateChmod();
+        }
+
+        // Concept functionality
+        function loadConcept() {
+            if (currentConceptIndex >= concepts.length) {
+                currentConceptIndex = 0;
+            }
+            
+            const concept = concepts[currentConceptIndex];
+            document.getElementById('concept-content').innerHTML = `
+                <h2>${concept.title}</h2>
+                ${concept.content}
+            `;
+        }
+
+        function nextConcept() {
+            currentConceptIndex++;
+            loadConcept();
+            updateProgress();
+        }
+
+        function randomConcept() {
+            currentConceptIndex = Math.floor(Math.random() * concepts.length);
+            loadConcept();
+        }
+
+        // Stats and progress
+        function updateStats() {
+            document.getElementById('correct-count').textContent = correctAnswers;
+            document.getElementById('total-count').textContent = totalAnswers;
+            document.getElementById('accuracy').textContent = 
+                totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) + '%' : '0%';
+        }
+
+        function updateProgress() {
+            let progress = 0;
+            if (currentMode === 'quiz') {
+                progress = (currentQuizIndex / quizData.length) * 100;
+            } else if (currentMode === 'flashcard') {
+                progress = (currentFlashcardIndex / flashcards.length) * 100;
+            } else if (currentMode === 'concept') {
+                progress = (currentConceptIndex / concepts.length) * 100;
+            } else if (currentMode === 'chmod') {
+                progress = 100; // Always complete for interactive tool
+            }
+            
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function resetStats() {
+            correctAnswers = 0;
+            totalAnswers = 0;
+            currentQuizIndex = 0;
+            updateStats();
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>

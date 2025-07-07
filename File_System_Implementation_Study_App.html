@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OS File System Implementation Study App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #8E44AD, #3498DB);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #8E44AD;
+            color: white;
+        }
+
+        .mode-btn:not(.active) {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border-left: 5px solid #8E44AD;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option {
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.1em;
+        }
+
+        .option:hover {
+            border-color: #8E44AD;
+            transform: translateX(5px);
+        }
+
+        .option.selected {
+            background: #e8e3f5;
+            border-color: #8E44AD;
+        }
+
+        .option.correct {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+
+        .option.incorrect {
+            background: #ffcdd2;
+            border-color: #f44336;
+        }
+
+        .flashcard {
+            min-height: 250px;
+            perspective: 1000px;
+        }
+
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 1.2em;
+            line-height: 1.5;
+        }
+
+        .flashcard-front {
+            background: linear-gradient(45deg, #D1C4E9, #E1BEE7);
+            color: #333;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(45deg, #B39DDB, #CE93D8);
+            color: #333;
+            transform: rotateY(180deg);
+        }
+
+        .allocation-visualizer {
+            background: #f0f8ff;
+            border: 2px solid #3498DB;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .block-container {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            margin: 20px 0;
+        }
+
+        .block {
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 0.9em;
+        }
+
+        .block-free { background: #95A5A6; }
+        .block-file-a { background: #E74C3C; }
+        .block-file-b { background: #3498DB; }
+        .block-file-c { background: #2ECC71; }
+
+        .allocation-controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #8E44AD;
+            color: white;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #8E44AD, #3498DB);
+            transition: width 0.3s;
+        }
+
+        .result {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            font-size: 1.2em;
+        }
+
+        .result.correct {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .result.incorrect {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .explanation {
+            margin-top: 15px;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💾 OS File System Implementation Study App</h1>
+            <p>Interactive learning for CSC1107 - File System Implementation</p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="correct-count">0</div>
+                    <div>Correct</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="total-count">0</div>
+                    <div>Total</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="accuracy">0%</div>
+                    <div>Accuracy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('quiz')">📝 Quiz Mode</button>
+                <button class="mode-btn" onclick="setMode('flashcard')">🗂️ Flashcards</button>
+                <button class="mode-btn" onclick="setMode('visualizer')">🎨 Block Allocation</button>
+                <button class="mode-btn" onclick="setMode('concept')">🎯 Concepts</button>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+
+            <!-- Quiz Mode -->
+            <div id="quiz-mode" class="mode-content">
+                <div class="card fade-in">
+                    <div class="question" id="quiz-question">Loading question...</div>
+                    <div class="options" id="quiz-options"></div>
+                    <div class="result hidden" id="quiz-result"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextQuestion()">Next Question</button>
+                    <button class="btn btn-warning" onclick="resetStats()">Reset Stats</button>
+                </div>
+            </div>
+
+            <!-- Flashcard Mode -->
+            <div id="flashcard-mode" class="mode-content hidden">
+                <div class="card flashcard" onclick="flipCard()">
+                    <div class="flashcard-inner" id="flashcard-inner">
+                        <div class="flashcard-front" id="flashcard-front">
+                            Click to reveal answer
+                        </div>
+                        <div class="flashcard-back" id="flashcard-back">
+                            Answer will appear here
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-success" onclick="nextFlashcard()">Next Card</button>
+                    <button class="btn btn-primary" onclick="shuffleFlashcards()">Shuffle</button>
+                </div>
+            </div>
+
+            <!-- Block Allocation Visualizer -->
+            <div id="visualizer-mode" class="mode-content hidden">
+                <div class="card fade-in">
+                    <h3>Block Allocation Visualizer</h3>
+                    <div class="allocation-visualizer">
+                        <h4 id="allocation-title">Contiguous Allocation</h4>
+                        <div class="block-container" id="block-container"></div>
+                        <div class="allocation-controls">
+                            <button class="btn btn-primary" onclick="showContiguous()">Contiguous</button>
+                            <button class="btn btn-success" onclick="showLinked()">Linked</button>
+                            <button class="btn btn-warning" onclick="showIndexed()">Indexed</button>
+                        </div>
+                        <div id="allocation-explanation"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Concept Mode -->
+            <div id="concept-mode" class="mode-content hidden">
+                <div class="card fade-in" id="concept-card">
+                    <div id="concept-content">Loading concept...</div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="nextConcept()">Next Concept</button>
+                    <button class="btn btn-success" onclick="randomConcept()">Random</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Study data
+        const quizData = [
+            {
+                question: "What are the three key characteristics of block-structured storage?",
+                options: [
+                    "Fast, Cheap, Reliable",
+                    "Persistent, Block-structured, Random access",
+                    "Sequential, Indexed, Linked",
+                    "Volatile, Fixed-size, Ordered"
+                ],
+                correct: 1,
+                explanation: "Block-structured storage is: 1) Persistent (data survives power cycles), 2) Block-structured (fixed-size units with LBA), 3) Random access (blocks accessed in any order)."
+            },
+            {
+                question: "Why is the standard block size typically 4KB?",
+                options: [
+                    "It's a power of 2",
+                    "Matches memory page size for efficient I/O",
+                    "Historical convention",
+                    "Hardware limitation"
+                ],
+                correct: 1,
+                explanation: "4KB block size matches the memory page size, enabling efficient I/O operations and caching between storage and memory systems."
+            },
+            {
+                question: "What causes internal fragmentation in file systems?",
+                options: [
+                    "Files larger than available space",
+                    "Small files occupying entire blocks",
+                    "Disk defragmentation",
+                    "Network latency"
+                ],
+                correct: 1,
+                explanation: "Internal fragmentation occurs when small files occupy entire blocks, leaving unused space within the block that cannot be used by other files."
+            },
+            {
+                question: "Which block allocation method provides the best performance for sequential access?",
+                options: [
+                    "Linked allocation",
+                    "Indexed allocation",
+                    "Contiguous allocation",
+                    "Hashed allocation"
+                ],
+                correct: 2,
+                explanation: "Contiguous allocation provides the best performance for sequential access because all blocks are physically adjacent, minimizing seek time."
+            },
+            {
+                question: "What is the main disadvantage of contiguous allocation?",
+                options: [
+                    "Poor performance",
+                    "Complex implementation",
+                    "External fragmentation",
+                    "No random access"
+                ],
+                correct: 2,
+                explanation: "Contiguous allocation suffers from external fragmentation - free space becomes scattered, making it difficult to allocate contiguous blocks for new files."
+            },
+            {
+                question: "In Unix inode structure, how many direct block pointers are there?",
+                options: ["10", "12", "14", "16"],
+                correct: 1,
+                explanation: "Unix inodes contain 12 direct block pointers, allowing direct access to the first 48KB of a file (12 × 4KB blocks)."
+            },
+            {
+                question: "What is the maximum file size with Unix inode (4KB blocks, 32-bit pointers)?",
+                options: ["4GB", "4TB", "48KB", "1TB"],
+                correct: 1,
+                explanation: "With 12 direct + indirect + double indirect + triple indirect blocks, the maximum file size is approximately 4TB (12×4KB + 1024×4KB + 1024²×4KB + 1024³×4KB)."
+            },
+            {
+                question: "Which directory implementation method provides O(1) average search time?",
+                options: [
+                    "Linear list",
+                    "Hash table",
+                    "B+ tree",
+                    "Linked list"
+                ],
+                correct: 1,
+                explanation: "Hash tables provide O(1) average search time by using a hash function to directly compute the location of directory entries."
+            },
+            {
+                question: "What does VFS (Virtual File System) provide?",
+                options: [
+                    "Virtual memory management",
+                    "Uniform API for different file systems",
+                    "File compression",
+                    "Network file access only"
+                ],
+                correct: 1,
+                explanation: "VFS provides a uniform API that allows the same system calls to work with different file system types (ext4, NTFS, FAT, network filesystems)."
+            },
+            {
+                question: "In FAT file system, what does a FAT entry value of 0 indicate?",
+                options: [
+                    "End of file",
+                    "Free cluster",
+                    "Bad cluster",
+                    "Directory entry"
+                ],
+                correct: 1,
+                explanation: "In FAT, an entry value of 0 indicates a free cluster that can be allocated to files. EOF markers and bad cluster markers use different values."
+            },
+            {
+                question: "Which free space management method uses one bit per block?",
+                options: [
+                    "Linked list",
+                    "Bit vector (bitmap)",
+                    "FAT table",
+                    "Index blocks"
+                ],
+                correct: 1,
+                explanation: "Bit vector (bitmap) method uses one bit per block to indicate free (0) or allocated (1) status, providing compact representation."
+            },
+            {
+                question: "What is the main advantage of linked allocation over contiguous allocation?",
+                options: [
+                    "Better performance",
+                    "No external fragmentation",
+                    "Random access support",
+                    "Simpler implementation"
+                ],
+                correct: 1,
+                explanation: "Linked allocation eliminates external fragmentation because files can use any available blocks, connected through pointers."
+            },
+            {
+                question: "Which storage device characteristic is sequential rather than random access?",
+                options: [
+                    "Hard Disk Drive (HDD)",
+                    "Solid State Drive (SSD)",
+                    "Magnetic tape",
+                    "NAND flash memory"
+                ],
+                correct: 2,
+                explanation: "Magnetic tape is a sequential access device - you must read through data in order, unlike random access devices where any block can be accessed directly."
+            },
+            {
+                question: "What is wear leveling in NAND flash memory?",
+                options: [
+                    "Error correction mechanism",
+                    "Distributing writes across memory cells",
+                    "Data compression technique",
+                    "Power management feature"
+                ],
+                correct: 1,
+                explanation: "Wear leveling distributes write operations across all memory cells to prevent premature failure of frequently written areas, extending device lifespan."
+            },
+            {
+                question: "In the layered file system architecture, which layer translates file names to file numbers?",
+                options: [
+                    "Basic file system",
+                    "Device driver",
+                    "Logical file system",
+                    "Hardware layer"
+                ],
+                correct: 2,
+                explanation: "The logical file system layer manages metadata, translating file names to file numbers/handles and maintaining file control blocks (inodes)."
+            }
+        ];
+
+        const flashcards = [
+            {
+                front: "Block-Structured Storage Characteristics",
+                back: "1) Persistent - data survives power cycles\n2) Block-structured - fixed-size units with LBA\n3) Random access - blocks accessed in any order"
+            },
+            {
+                front: "Three Block Allocation Methods",
+                back: "1) Contiguous - consecutive blocks (fast, fragmentation)\n2) Linked - blocks connected by pointers (no fragmentation, no random access)\n3) Indexed - index block points to data blocks (random access, overhead)"
+            },
+            {
+                front: "Unix inode Structure",
+                back: "12 direct pointers (48KB)\n1 indirect pointer (4MB)\n1 double indirect (4GB)\n1 triple indirect (4TB)\nTotal: ~4TB max file size"
+            },
+            {
+                front: "Internal vs External Fragmentation",
+                back: "Internal: Unused space within allocated blocks\nExternal: Unusable gaps between allocated regions\nPaging eliminates external fragmentation"
+            },
+            {
+                front: "VFS (Virtual File System)",
+                back: "Provides uniform API for different file systems\nSeparates generic operations from implementation\nEnables same system calls for ext4, NTFS, FAT, network FS"
+            },
+            {
+                front: "FAT File System",
+                back: "Static table at disk beginning\n0 = free cluster\n2-MAX = next cluster in chain\nEOF = end of file marker\nBAD = bad cluster marker"
+            },
+            {
+                front: "Free Space Management",
+                back: "Linked list: Simple, no extra space, sequential traversal\nBit vector: O(1) check, easy contiguous search, fixed overhead"
+            },
+            {
+                front: "NAND vs NOR Flash",
+                back: "NAND: Block access, cheaper, mass storage, wear leveling needed\nNOR: Byte access, expensive, faster read, bootloaders/code execution"
+            },
+            {
+                front: "Directory Implementation",
+                back: "Linear list: Simple, O(n) search\nHash table: O(1) average search, collision handling\nB+ tree: Ordered, good for range queries"
+            },
+            {
+                front: "File System Layers",
+                back: "System calls → Logical FS (metadata) → Basic FS (block I/O) → Device drivers → Hardware"
+            }
+        ];
+
+        const concepts = [
+            {
+                title: "Block Allocation Method Comparison",
+                content: `
+                    <table>
+                        <tr><th>Method</th><th>Advantages</th><th>Disadvantages</th><th>Best For</th></tr>
+                        <tr>
+                            <td><strong>Contiguous</strong></td>
+                            <td>• Best sequential performance<br>• Simple metadata<br>• Minimal seek time</td>
+                            <td>• External fragmentation<br>• Hard to grow files<br>• Must know size in advance</td>
+                            <td>Multimedia files, databases</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Linked</strong></td>
+                            <td>• No external fragmentation<br>• Dynamic file growth<br>• Simple free space mgmt</td>
+                            <td>• No random access<br>• Reliability issues<br>• Pointer overhead</td>
+                            <td>Log files, sequential data</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Indexed</strong></td>
+                            <td>• Random access<br>• No external fragmentation<br>• Dynamic growth</td>
+                            <td>• Index block overhead<br>• Indirect access cost<br>• Complex for small files</td>
+                            <td>General purpose, Unix/Linux</td>
+                        </tr>
+                    </table>
+                `
+            },
+            {
+                title: "Unix inode Deep Dive",
+                content: `
+                    <div class="code-block">
+inode Structure (128 bytes):
+┌─────────────────┐
+│ File metadata   │ ← Type, permissions, size, timestamps
+├─────────────────┤
+│ Direct blocks   │ ← 12 pointers × 4KB = 48KB
+│ (12 pointers)   │
+├─────────────────┤
+│ Indirect        │ ← 1024 pointers × 4KB = 4MB
+│ (1 pointer)     │
+├─────────────────┤
+│ Double indirect │ ← 1024² pointers × 4KB = 4GB
+│ (1 pointer)     │
+├─────────────────┤
+│ Triple indirect │ ← 1024³ pointers × 4KB = 4TB
+│ (1 pointer)     │
+└─────────────────┘
+                    </div>
+                    <h4>File Size Calculation:</h4>
+                    <p><strong>Maximum file size</strong> = 48KB + 4MB + 4GB + 4TB ≈ <strong>4TB</strong></p>
+                    <p><strong>Efficiency</strong>: Small files use direct blocks only, large files benefit from multiple indirection levels.</p>
+                `
+            },
+            {
+                title: "Storage Technology Evolution",
+                content: `
+                    <h3>Memory Hierarchy Performance:</h3>
+                    <table>
+                        <tr><th>Technology</th><th>Access Time</th><th>Capacity</th><th>Volatility</th><th>Cost/GB</th></tr>
+                        <tr><td>CPU Registers</td><td>~1 cycle</td><td>Bytes</td><td>Volatile</td><td>Highest</td></tr>
+                        <tr><td>L1 Cache</td><td>~3 cycles</td><td>~32KB</td><td>Volatile</td><td>Very High</td></tr>
+                        <tr><td>RAM</td><td>~100 cycles</td><td>GBs</td><td>Volatile</td><td>High</td></tr>
+                        <tr><td>SSD</td><td>~25,000 cycles</td><td>100s GB</td><td>Non-volatile</td><td>Medium</td></tr>
+                        <tr><td>HDD</td><td>~500,000 cycles</td><td>TBs</td><td>Non-volatile</td><td>Low</td></tr>
+                        <tr><td>Tape</td><td>Very slow</td><td>TBs</td><td>Non-volatile</td><td>Lowest</td></tr>
+                    </table>
+                    
+                    <h4>Key Insight:</h4>
+                    <p><strong>Trade-off</strong>: Faster storage is smaller and more expensive. File systems bridge this gap through caching and buffering.</p>
+                `
+            },
+            {
+                title: "FAT File System Architecture",
+                content: `
+                    <h3>FAT Structure:</h3>
+                    <div class="code-block">
+Disk Layout:
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│ Boot Sector │ FAT Table   │ Root Dir    │ Data Area   │
+│             │ (duplicated)│             │ (clusters)  │
+└─────────────┴─────────────┴─────────────┴─────────────┘
+
+FAT Entry Values:
+• 0x000: Free cluster
+• 0x002-0xFEF: Next cluster in chain
+• 0xFF8-0xFFF: End of file
+• 0xFF7: Bad cluster
+                    </div>
+                    
+                    <h4>Example File Chain:</h4>
+                    <p><strong>File starts at cluster 5:</strong> 5 → 7 → 12 → EOF</p>
+                    <p><strong>Advantages:</strong> Simple, reliable (duplicated FAT), good for removable media</p>
+                    <p><strong>Disadvantages:</strong> Limited file size, no security, fragmentation</p>
+                `
+            }
+        ];
+
+        // State management
+        let currentQuizIndex = 0;
+        let currentFlashcardIndex = 0;
+        let currentConceptIndex = 0;
+        let correctAnswers = 0;
+        let totalAnswers = 0;
+        let currentMode = 'quiz';
+        let answered = false;
+
+        // Initialize
+        function init() {
+            loadQuestion();
+            loadFlashcard();
+            loadConcept();
+            updateStats();
+            createBlockVisualization();
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update buttons
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Show/hide content
+            document.querySelectorAll('.mode-content').forEach(content => content.classList.add('hidden'));
+            document.getElementById(mode + '-mode').classList.remove('hidden');
+            
+            updateProgress();
+            
+            if (mode === 'visualizer') {
+                showContiguous();
+            }
+        }
+
+        // Quiz functionality
+        function loadQuestion() {
+            if (currentQuizIndex >= quizData.length) {
+                currentQuizIndex = 0;
+            }
+            
+            const question = quizData[currentQuizIndex];
+            document.getElementById('quiz-question').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.textContent = option;
+                optionDiv.onclick = () => selectOption(index);
+                optionsContainer.appendChild(optionDiv);
+            });
+            
+            document.getElementById('quiz-result').classList.add('hidden');
+            answered = false;
+        }
+
+        function selectOption(selectedIndex) {
+            if (answered) return;
+            
+            const question = quizData[currentQuizIndex];
+            const options = document.querySelectorAll('.option');
+            
+            options[selectedIndex].classList.add('selected');
+            
+            setTimeout(() => {
+                options.forEach((option, index) => {
+                    if (index === question.correct) {
+                        option.classList.add('correct');
+                    } else if (index === selectedIndex && index !== question.correct) {
+                        option.classList.add('incorrect');
+                    }
+                });
+                
+                const resultDiv = document.getElementById('quiz-result');
+                const isCorrect = selectedIndex === question.correct;
+                
+                if (isCorrect) {
+                    correctAnswers++;
+                    resultDiv.className = 'result correct';
+                    resultDiv.innerHTML = `<strong>✅ Correct!</strong><div class="explanation">${question.explanation}</div>`;
+                } else {
+                    resultDiv.className = 'result incorrect';
+                    resultDiv.innerHTML = `<strong>❌ Incorrect!</strong><div class="explanation">${question.explanation}</div>`;
+                }
+                
+                totalAnswers++;
+                answered = true;
+                resultDiv.classList.remove('hidden');
+                updateStats();
+            }, 500);
+        }
+
+        function nextQuestion() {
+            currentQuizIndex++;
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Flashcard functionality
+        function loadFlashcard() {
+            if (currentFlashcardIndex >= flashcards.length) {
+                currentFlashcardIndex = 0;
+            }
+            
+            const card = flashcards[currentFlashcardIndex];
+            document.getElementById('flashcard-front').textContent = card.front;
+            document.getElementById('flashcard-back').innerHTML = card.back.replace(/\n/g, '<br>');
+            
+            document.querySelector('.flashcard').classList.remove('flipped');
+        }
+
+        function flipCard() {
+            document.querySelector('.flashcard').classList.toggle('flipped');
+        }
+
+        function nextFlashcard() {
+            currentFlashcardIndex++;
+            loadFlashcard();
+            updateProgress();
+        }
+
+        function shuffleFlashcards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentFlashcardIndex = 0;
+            loadFlashcard();
+        }
+
+        // Block allocation visualization
+        function createBlockVisualization() {
+            const container = document.getElementById('block-container');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < 20; i++) {
+                const block = document.createElement('div');
+                block.className = 'block block-free';
+                block.textContent = i;
+                container.appendChild(block);
+            }
+        }
+
+        function showContiguous() {
+            createBlockVisualization();
+            const blocks = document.querySelectorAll('.block');
+            
+            // File A: blocks 0-2
+            blocks[0].className = 'block block-file-a';
+            blocks[0].textContent = 'A';
+            blocks[1].className = 'block block-file-a';
+            blocks[1].textContent = 'A';
+            blocks[2].className = 'block block-file-a';
+            blocks[2].textContent = 'A';
+            
+            // File B: blocks 5-8
+            blocks[5].className = 'block block-file-b';
+            blocks[5].textContent = 'B';
+            blocks[6].className = 'block block-file-b';
+            blocks[6].textContent = 'B';
+            blocks[7].className = 'block block-file-b';
+            blocks[7].textContent = 'B';
+            blocks[8].className = 'block block-file-b';
+            blocks[8].textContent = 'B';
+            
+            document.getElementById('allocation-title').textContent = 'Contiguous Allocation';
+            document.getElementById('allocation-explanation').innerHTML = `
+                <p><strong>File A:</strong> Blocks 0-2 (contiguous)</p>
+                <p><strong>File B:</strong> Blocks 5-8 (contiguous)</p>
+                <p><strong>Benefits:</strong> Fast sequential access, simple metadata</p>
+                <p><strong>Problems:</strong> External fragmentation (blocks 3-4 too small for new file)</p>
+            `;
+        }
+
+        function showLinked() {
+            createBlockVisualization();
+            const blocks = document.querySelectorAll('.block');
+            
+            // File A: blocks 0→7→12
+            blocks[0].className = 'block block-file-a';
+            blocks[0].textContent = 'A→7';
+            blocks[7].className = 'block block-file-a';
+            blocks[7].textContent = 'A→12';
+            blocks[12].className = 'block block-file-a';
+            blocks[12].textContent = 'A∅';
+            
+            // File B: blocks 2→5→9→15
+            blocks[2].className = 'block block-file-b';
+            blocks[2].textContent = 'B→5';
+            blocks[5].className = 'block block-file-b';
+            blocks[5].textContent = 'B→9';
+            blocks[9].className = 'block block-file-b';
+            blocks[9].textContent = 'B→15';
+            blocks[15].className = 'block block-file-b';
+            blocks[15].textContent = 'B∅';
+            
+            document.getElementById('allocation-title').textContent = 'Linked Allocation';
+            document.getElementById('allocation-explanation').innerHTML = `
+                <p><strong>File A:</strong> 0 → 7 → 12 → null</p>
+                <p><strong>File B:</strong> 2 → 5 → 9 → 15 → null</p>
+                <p><strong>Benefits:</strong> No external fragmentation, dynamic growth</p>
+                <p><strong>Problems:</strong> No random access, reliability issues</p>
+            `;
+        }
+
+        function showIndexed() {
+            createBlockVisualization();
+            const blocks = document.querySelectorAll('.block');
+            
+            // File A index at block 0, data at 5,8,12
+            blocks[0].className = 'block block-file-a';
+            blocks[0].textContent = 'A-I';
+            blocks[5].className = 'block block-file-a';
+            blocks[5].textContent = 'A';
+            blocks[8].className = 'block block-file-a';
+            blocks[8].textContent = 'A';
+            blocks[12].className = 'block block-file-a';
+            blocks[12].textContent = 'A';
+            
+            // File B index at block 1, data at 3,7,10,16
+            blocks[1].className = 'block block-file-b';
+            blocks[1].textContent = 'B-I';
+            blocks[3].className = 'block block-file-b';
+            blocks[3].textContent = 'B';
+            blocks[7].className = 'block block-file-b';
+            blocks[7].textContent = 'B';
+            blocks[10].className = 'block block-file-b';
+            blocks[10].textContent = 'B';
+            blocks[16].className = 'block block-file-b';
+            blocks[16].textContent = 'B';
+            
+            document.getElementById('allocation-title').textContent = 'Indexed Allocation';
+            document.getElementById('allocation-explanation').innerHTML = `
+                <p><strong>File A:</strong> Index block 0 → Data blocks [5, 8, 12]</p>
+                <p><strong>File B:</strong> Index block 1 → Data blocks [3, 7, 10, 16]</p>
+                <p><strong>Benefits:</strong> Random access, no external fragmentation</p>
+                <p><strong>Problems:</strong> Index block overhead, indirect access</p>
+            `;
+        }
+
+        // Concept functionality
+        function loadConcept() {
+            if (currentConceptIndex >= concepts.length) {
+                currentConceptIndex = 0;
+            }
+            
+            const concept = concepts[currentConceptIndex];
+            document.getElementById('concept-content').innerHTML = `
+                <h2>${concept.title}</h2>
+                ${concept.content}
+            `;
+        }
+
+        function nextConcept() {
+            currentConceptIndex++;
+            loadConcept();
+            updateProgress();
+        }
+
+        function randomConcept() {
+            currentConceptIndex = Math.floor(Math.random() * concepts.length);
+            loadConcept();
+        }
+
+        // Stats and progress
+        function updateStats() {
+            document.getElementById('correct-count').textContent = correctAnswers;
+            document.getElementById('total-count').textContent = totalAnswers;
+            document.getElementById('accuracy').textContent = 
+                totalAnswers > 0 ? Math.round((correctAnswers / totalAnswers) * 100) + '%' : '0%';
+        }
+
+        function updateProgress() {
+            let progress = 0;
+            if (currentMode === 'quiz') {
+                progress = (currentQuizIndex / quizData.length) * 100;
+            } else if (currentMode === 'flashcard') {
+                progress = (currentFlashcardIndex / flashcards.length) * 100;
+            } else if (currentMode === 'concept') {
+                progress = (currentConceptIndex / concepts.length) * 100;
+            } else if (currentMode === 'visualizer') {
+                progress = 100; // Always complete for interactive tool
+            }
+            
+            document.getElementById('progress-fill').style.width = progress + '%';
+        }
+
+        function resetStats() {
+            correctAnswers = 0;
+            totalAnswers = 0;
+            currentQuizIndex = 0;
+            updateStats();
+            loadQuestion();
+            updateProgress();
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
